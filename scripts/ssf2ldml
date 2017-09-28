@@ -20,13 +20,12 @@ try:
     import dblauthkey
 except ImportError:
     sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-    import dblauthkey
 
 import json
 
 from ConfigParser import RawConfigParser
 
-supplementalPath = "/../lib/sldr/"
+supplementalPath = "/../../sldr/python/lib/sldr/"
 
 try:
     from ldml import Ldml
@@ -104,6 +103,7 @@ class DBLAuthV1(requests.auth.AuthBase):
 class DBLReader(object):
 
     def __init__(self):
+        import dblauthkey
         (key1, key2) = dblauthkey.authkey()
         self.auth = DBLAuthV1(key1, key2)
 
