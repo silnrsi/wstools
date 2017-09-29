@@ -32,6 +32,7 @@ try:
 except ImportError:
     sys.path.append(os.path.abspath(os.path.dirname(__file__) + supplementalPath))
     from ldml import Ldml
+    from collation import Collation, CollElement
     
 import ducet
 
@@ -315,7 +316,10 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
 
     # Generate a data structure similar to a sort tailoring for the list of characters.
     sortResult = []
+    coll = Collation()
+    alphabet = []
     if len(valueList) > 0 :
+        currBase = None
         for value in valueList :
             uValue = value.decode('utf-8')
             spaceItems = uValue.split(' ')
@@ -330,6 +334,7 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
             sortSpecItems = []
             spaceSep = "&"
             prevSlashItems = None
+            currLevel = 1
             for spaceItem in spaceItems :
                 slashItems = spaceItem.split('/')
 
@@ -342,10 +347,18 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
                         slashItems = [c1, c2]
 
                 #for i in range(len(slashItems)) : slashItems[i] = _charToInt(slashItems[i])
-                slashItems = [_charToInt(x) for x in slashItems]
+                #slashItems = [_charToInt(x) for x in slashItems]
                 #if prevSlashItems is not None and differByDiacs(prevSlashItems[0], slashItems[0]) :
                 slashSep = "<<"
 
+                for s in slashItems:
+                    if currBase is not None:
+                        coll[s] = CollElement(currBase, currLevel)
+                    currLevel = 3
+                    currBase = s
+                    alphabet.append(s)
+                currLevel = 2
+                        
                 if len(slashItems) == 2 :  ### and _caseEquivalent(slashItems[0], slashItems[1]) :
                     # upper/lower
                     # TODO: remove this branch
@@ -362,7 +375,7 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
                 spaceSep = "<<"
                 prevSlashItems = slashItems
                 
-            sortResult.append(sortSpecItems)
+            #sortResult.append(sortSpecItems)
 
     if len(sortResult) > 0 :
         # Minimize the sort spec to only include things that don't fit the DUCET.
@@ -388,7 +401,9 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
     else :
         sortSpecString = None
 
-    return sortSpecString
+    coll.minimise(alphabet)
+    return coll.asICU()    
+    #return sortSpecString
 
 
 def _minimizeSortSpec(sortSpec, ducetDict) :
