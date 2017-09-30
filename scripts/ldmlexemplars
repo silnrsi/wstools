@@ -32,14 +32,13 @@ from subprocess import check_output
 from StringIO import StringIO
 from xml.etree import ElementTree as et
 from datetime import datetime
-import ldml_exemplars
 
 try:
     from sldr.ldml import Ldml, flattenlocale
 except ImportError:
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'lib')))
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'sldr', 'python', 'lib')))
     from sldr.ldml import Ldml, flattenlocale, etwrite
-
+    from sldr.ldml_exemplars import Exemplars
 
 def main():
     parser = ArgumentParser()
@@ -48,7 +47,7 @@ def main():
     parser.add_argument('-o','--output', help="Output file")
     args = parser.parse_args()
 
-    exemplars = ldml_exemplars.Exemplars()
+    exemplars = Exemplars()
     corpus = codecs.open(args.corpus, 'r', encoding='utf-8')
     for line in corpus:
         exemplars.process(line)
