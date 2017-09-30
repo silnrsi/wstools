@@ -29,11 +29,12 @@ supplementalPath = "/../../sldr/python/lib/sldr/"
 
 try:
     from ldml import Ldml
+    from collation import Collation, CollElement
 except ImportError:
     sys.path.append(os.path.abspath(os.path.dirname(__file__) + supplementalPath))
     from ldml import Ldml
     from collation import Collation, CollElement
-    
+
 import ducet
 
 ##import xml.etree.cElementTree as etree
@@ -140,24 +141,38 @@ class DBLReader(object):
     def getOneEntry(self, entryId):
         # 8 = Creative Commons
         # 126 = WBT Non-Commercial Digital Text Distribution Agreement with YouVersion
-        response = requests.get('https://thedigitalbiblelibrary.org/api/entries/' + entryId + "/revision/latest/license/8",
+        response = requests.get('https://thedigitalbiblelibrary.org/api/entries/' + entryId,
                                 auth=self.auth,
                                 headers={'Date': format_date_time(mktime(datetime.now().timetuple())),
                                          'Content-Type': 'application/json'})
         if response.status_code == 200:
             entryJson = response.content
-            result = json.loads(entryJson)
-            return result
+            entryMetaData = json.loads(entryJson)
+            licenses = entryMetaData['licenses']
+            if len(licenses) > 0:
+                licenseId = (licenses[0])['id']
+                response = requests.get('https://thedigitalbiblelibrary.org/api/entries/' + entryId + "/revision/latest/license/" + str(licenseId),
+                                        auth=self.auth,
+                                        headers={'Date': format_date_time(mktime(datetime.now().timetuple())),
+                                                 'Content-Type': 'application/json'})
+                if response.status_code == 200:
+                    entryJson = response.content
+                    result = json.loads(entryJson)
+                    return result
+                else:
+                    entryJson = ""
+                    result = {}
+                    return response.status_code
+            else:
+                return 403  # forbidden
         else:
-            entryJson = ""
-            result = {}
             return response.status_code
 
 
 #end of class DBLReader
 
 
-def loadssf(ldml, ssfFilename):
+def loadSsf(ldml, ssfFilename):
     if isinstance(ssfFilename, basestring):
         ssfFile = open(ssfFilename, 'rb')
     else:
@@ -197,7 +212,7 @@ def loadssf(ldml, ssfFilename):
         _addSsfDataInnerInnerQuotes(ldml, ssfLangData['InnerInnerQuotes'])
 
 
-def loadlds(ldml, ldsFilename, ducetDict):
+def loadLds(ldml, ldsFilename, ducetDict):
     if isinstance(ldsFilename, basestring):
         ldsFile = open(ldsFilename, 'r')
     else:
@@ -316,7 +331,7 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
 
     # Generate a data structure similar to a sort tailoring for the list of characters.
     sortResult = []
-    coll = Collation()
+    collObj = collation.Collation()
     alphabet = []
     if len(valueList) > 0 :
         currBase = None
@@ -346,64 +361,21 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
                         # Assume a typo where they left out the slash.
                         slashItems = [c1, c2]
 
-                #for i in range(len(slashItems)) : slashItems[i] = _charToInt(slashItems[i])
-                #slashItems = [_charToInt(x) for x in slashItems]
-                #if prevSlashItems is not None and differByDiacs(prevSlashItems[0], slashItems[0]) :
-                slashSep = "<<"
 
                 for s in slashItems:
                     if currBase is not None:
-                        coll[s] = CollElement(currBase, currLevel)
+                        collObj[s] = collation.CollElement(currBase, currLevel)
                     currLevel = 3
                     currBase = s
                     alphabet.append(s)
                 currLevel = 2
+
+    print collObj.asICU()
                         
-                if len(slashItems) == 2 :  ### and _caseEquivalent(slashItems[0], slashItems[1]) :
-                    # upper/lower
-                    # TODO: remove this branch
-                    sortSpecItems.extend((spaceSep, slashItems[0], "<<<", slashItems[1]))
-                else :
-                    sortSpecItems.append(spaceSep)
-                    #sortResult += spaceSep
-                    slashSep = None
-                    for slashItem in slashItems :
-                        if slashSep is not None : sortSpecItems.append(slashSep)
-                        sortSpecItems.append(slashItem)
-                        slashSep = "<<<"
-                
-                spaceSep = "<<"
-                prevSlashItems = slashItems
-                
-            #sortResult.append(sortSpecItems)
+    collObj.minimise(alphabet)
+    return collObj.asICU()
 
-    if len(sortResult) > 0 :
-        # Minimize the sort spec to only include things that don't fit the DUCET.
-        sortResult =_minimizeSortSpec(sortResult, ducetDict)
-
-        if len(sortResult) > 0 :
-            # Generate the sort spec string.
-            sortSpecString = "\n                    "
-            for sortLine in sortResult :
-                for item in sortLine :
-                    if item == "&" :
-                        sortSpecString += item
-                    elif isinstance(item, str) and (item[0]) == "&" :
-                        sortSpecString += item[0] + _unicodeEntity(item[1:]) + " "
-                    elif item == "<" :
-                        sortSpecString += "  < "
-                    elif item == "<<" or item == "<<<" or item == "=" :
-                        sortSpecString += " " + item + " "
-                    else :
-                        sortSpecString += _unicodeEntity(item)
-                sortSpecString += "\n                       "
-        else : sortSpecString = ""
-    else :
-        sortSpecString = None
-
-    coll.minimise(alphabet)
-    return coll.asICU()    
-    #return sortSpecString
+# end of calcSortLdsData
 
 
 def _minimizeSortSpec(sortSpec, ducetDict) :
@@ -616,21 +588,21 @@ def _run() :
     #                        headers={'Date': format_date_time(mktime(datetime.now().timetuple())),
     #                                 'Content-Type': 'application/json'})
 
-    dblreader = DBLReader()
-    code = dblreader.testAccess()
-    t = dblreader.getLicenses()
-    if code != 200:
-        print "ERROR in accessing DBL; HTTP response code = ",code
-    entriesDict = dblreader.getEntries()
-    if isinstance(entriesDict, int):
-        print "ERROR in obtaining DBL entries; HTTP response code = ",code
-    else:
-        entriesCnt = entriesDict['count']
-        entriesList = entriesDict['list']
-        for entry in entriesList:
-            entryId = entry['id']
-            entryLangCode = entry['language_code']
-            entryInfo = dblreader.getOneEntry(entryId)
+    # dblreader = DBLReader()
+    # code = dblreader.testAccess()
+    # t = dblreader.getLicenses()
+    # if code != 200:
+    #     print "ERROR in accessing DBL; HTTP response code = ",code
+    # entriesDict = dblreader.getEntries()
+    # if isinstance(entriesDict, int):
+    #     print "ERROR in obtaining DBL entries; HTTP response code = ",code
+    # else:
+    #     entriesCnt = entriesDict['count']
+    #     entriesList = entriesDict['list']
+    #     for entry in entriesList:
+    #         entryId = entry['id']
+    #         entryLangCode = entry['language_code']
+    #         entryInfo = dblreader.getOneEntry(entryId)
 
 
     #testLangs = [('aau','Latn'), ('aca','Latn')]
@@ -656,11 +628,12 @@ def _run() :
         ssfFilename = inputPath + langCode + '/' + langCode + ".ssf"
         ldsFilename = inputPath + langCode + '/' + langCode + ".lds"
         if os.path.isfile(ssfFilename):
-            loadssf(ldml, ssfFilename)
+            loadSsf(ldml, ssfFilename)
             if os.path.isfile(ldsFilename):
-                loadlds(ldml, ldsFilename)
-            ldmlFile = open(ldmlOutputFilename, 'rb')
-            ldml.serialize_xml(ldmlFile.write)
+                loadLds(ldml, ldsFilename, ducetDict)
+            ldmlOutputFilename = inputPath + langCode + '/' + langCode + "_" + scriptCode + "_out.xml"
+            ldmlOutFile = open(ldmlOutputFilename, 'wb')
+            ldml.serialize_xml(ldmlOutFile.write)
         else :
             print "missing SSF file: " + ssfFilename
 
@@ -677,22 +650,32 @@ if __name__ == '__main__':
     parser.add_argument('-d','--lds',help='input LDS file')
     parser.add_argument('-o','--outfile',help='output LDML file')
     args = parser.parse_args()
-    if not args.ssf:
-        _run()
+    #if not args.ssf:
+    #    _run()
 
-    if args.ldml:
-        ldml = Ldml(args.ldml)
+    ldmlFile = args.ldml
+    ssfFile = args.ssf
+    ldsFile = args.lds
+    outFile = args.outfile
+
+    #ldmlFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.xml"
+    ssfFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.ssf"
+    ldsFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.lds"
+    outFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz_Latn_out.xml"
+
+    if ldmlFile:
+        ldml = Ldml(ldmlFile)
     else:
         ldml = Ldml(None)
-    if args.ssf:
-        loadssf(ldml, args.ssf)
-    if args.lds:
+    if ssfFile:
+        loadSsf(ldml, ssfFile)
+    if ldsFile:
         import ducet
+        import collation
         ducetDict = ducet.readDucet()
-        loadlds(ldml, args.lds, ducetDict)
-    if args.outfile:
-        outf = open(args.outfile, 'rb')
+        loadLds(ldml, ldsFile, ducetDict)
+    if outFile:
+        outf = open(outFile, 'wb')
     else:
         outf = sys.stdout
     ldml.serialize_xml(outf.write)
-
