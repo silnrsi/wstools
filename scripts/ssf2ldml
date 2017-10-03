@@ -632,7 +632,7 @@ def _run() :
             if os.path.isfile(ldsFilename):
                 loadLds(ldml, ldsFilename, ducetDict)
             ldmlOutputFilename = inputPath + langCode + '/' + langCode + "_" + scriptCode + "_out.xml"
-            ldmlOutFile = open(ldmlOutputFilename, 'wb')
+            ldmlOutFile = codecs.open(ldmlOutputFilename, 'w', encoding="utf-8")
             ldml.serialize_xml(ldmlOutFile.write)
         else :
             print "missing SSF file: " + ssfFilename
@@ -645,10 +645,10 @@ def _run() :
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-l','--ldml',help='input LDML base file')
-    parser.add_argument('-s','--ssf',help='input SSF file')
-    parser.add_argument('-d','--lds',help='input LDS file')
-    parser.add_argument('-o','--outfile',help='output LDML file')
+    parser.add_argument('-l','--ldml',default="C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.xml",help='input LDML base file')
+    parser.add_argument('-s','--ssf',default="C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.ssf",help='input SSF file')
+    parser.add_argument('-d','--lds',default="C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.lds",help='input LDS file')
+    parser.add_argument('-o','--outfile',default="C:/WS_Tech/SSF2LDML/testdata/zzz/zzz_Latn_out.xml",help='output LDML file')
     args = parser.parse_args()
     #if not args.ssf:
     #    _run()
@@ -659,9 +659,9 @@ if __name__ == '__main__':
     outFile = args.outfile
 
     #ldmlFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.xml"
-    ssfFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.ssf"
-    ldsFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.lds"
-    outFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz_Latn_out.xml"
+    #ssfFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.ssf"
+    #ldsFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.lds"
+    #outFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz_Latn_out.xml"
 
     if ldmlFile:
         ldml = Ldml(ldmlFile)
@@ -675,7 +675,7 @@ if __name__ == '__main__':
         ducetDict = ducet.readDucet()
         loadLds(ldml, ldsFile, ducetDict)
     if outFile:
-        outf = open(outFile, 'wb')
+        outf = codecs.open(outFile, 'w', encoding="utf-8")
     else:
         outf = sys.stdout
     ldml.serialize_xml(outf.write)
