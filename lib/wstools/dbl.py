@@ -26,24 +26,33 @@
 
 import os
 import sys
-from argparse import ArgumentParser
+import codecs
 
 try:
-    from wstools.dbl import DBL
+    from sldr.ldml_exemplars import Exemplars
 except ImportError:
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'lib')))
-    from wstech.dbl import DBL
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'sldr', 'python', 'lib')))
+    from sldr.ldml_exemplars import Exemplars
 
 
 def main():
-    parser = ArgumentParser()
-    parser.add_argument('this', help='File of interest')
-    parser.add_argument('corpus', help='Corpus to read')
-    parser.add_argument('-o', '--output', help="Output file")
-    args = parser.parse_args()
+    pass
 
-    dbl = DBL()
-    dbl.process(args.corpus)
+
+class DBL(object):
+
+    def __init__(self):
+        self.exemplars = Exemplars()
+
+    def process(self, filename):
+        """Process a DBL project zip file."""
+        corpus = codecs.open(filename, 'r', encoding='utf-8')
+        for line in corpus:
+            self.exemplars.process(line)
+        print self.exemplars.get_main()
+        print self.exemplars.get_auxiliary()
+        print self.exemplars.get_index()
+        print self.exemplars.get_punctuation()
 
 
 if __name__ == '__main__':
