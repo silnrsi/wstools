@@ -27,6 +27,7 @@
 import os
 import sys
 import codecs
+import zipfile
 
 try:
     from sldr.ldml_exemplars import Exemplars
@@ -43,17 +44,24 @@ class DBL(object):
 
     def __init__(self):
         self.exemplars = Exemplars()
+        self.project = None
 
-    def process(self, filename):
-        """Process a DBL project zip file."""
-        corpus = codecs.open(filename, 'r', encoding='utf-8')
-        for line in corpus:
-            self.exemplars.process(line)
-        print self.exemplars.get_main()
-        print self.exemplars.get_auxiliary()
-        print self.exemplars.get_index()
-        print self.exemplars.get_punctuation()
+    def load(self, zipfilename):
+        """Open a DBL project zip file."""
+        self.project = zipfile.ZipFile(zipfilename, 'r')
 
+    def process(self):
+        """Process a DBL project."""
+        for name in self.project.namelist():
+            if name.endswith('.usx'):
+                usx = self.project.open(name, 'r')
+                for line in usx:
+                    self.exemplars.process(line)
+
+    def analyze(self):
+        """Analyze a DBL project."""
+        self.project.close()
+        self.exemplars.analyze()
 
 if __name__ == '__main__':
     main()

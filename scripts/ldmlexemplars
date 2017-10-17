@@ -37,13 +37,18 @@ except ImportError:
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('this', help='File of interest')
-    parser.add_argument('corpus', help='Corpus to read')
-    parser.add_argument('-o', '--output', help="Output file")
+    parser.add_argument('project', help='DBL project zip file')
     args = parser.parse_args()
 
     dbl = DBL()
-    dbl.process(args.corpus)
+    dbl.load(args.project)
+    dbl.process()
+    dbl.analyze()
+
+    print dbl.exemplars.get_main()
+    print dbl.exemplars.get_auxiliary()
+    print dbl.exemplars.get_index()
+    print dbl.exemplars.get_punctuation()
 
 
 if __name__ == '__main__':
