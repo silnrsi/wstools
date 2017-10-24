@@ -26,8 +26,8 @@
 
 import os
 import sys
-import codecs
 import zipfile
+import xml.etree.ElementTree as ET
 
 try:
     from sldr.ldml_exemplars import Exemplars
@@ -52,16 +52,31 @@ class DBL(object):
 
     def process(self):
         """Process a DBL project."""
-        for name in self.project.namelist():
-            if name.endswith('.usx'):
-                usx = self.project.open(name, 'r')
-                for line in usx:
-                    self.exemplars.process(line)
+        for filename in self.project.namelist():
+            if filename.endswith('.usx'):
+                usx = self.project.open(filename, 'r')
+                for text in self.process_file(usx):
+                    self.exemplars.process(text)
+
+    def process_file(self, usx):
+        """Process one USX file."""
+        tree = ET.parse(usx)
+        for marker in tree.iterfind('para'):
+            for text in self.get_text(marker):
+                yield text
+        usx.close()
+
+    @staticmethod
+    def get_text(element):
+        """Extract all text from an ET Element."""
+        for text in element.itertext():
+            yield text.strip()
 
     def analyze(self):
         """Analyze a DBL project."""
         self.project.close()
         self.exemplars.analyze()
+
 
 if __name__ == '__main__':
     main()

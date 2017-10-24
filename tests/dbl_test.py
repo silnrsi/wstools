@@ -26,7 +26,7 @@
 
 import os
 import sys
-from argparse import ArgumentParser
+import unittest
 
 try:
     from wstools.dbl import DBL
@@ -35,21 +35,22 @@ except ImportError:
     from dbl import DBL
 
 
-def main():
-    parser = ArgumentParser()
-    parser.add_argument('project', help='DBL project zip file')
-    args = parser.parse_args()
+class DBLTests(unittest.TestCase):
 
-    dbl = DBL()
-    dbl.load(args.project)
-    dbl.process()
-    dbl.analyze()
+    def setUp(self):
+        self.dbl = DBL()
 
-    print dbl.exemplars.get_main()
-    print dbl.exemplars.get_auxiliary()
-    print dbl.exemplars.get_index()
-    print dbl.exemplars.get_punctuation()
+    def tearDown(self):
+        pass
+
+    def test_get_text(self):
+        usx = open('MAT.usx', 'r')
+        all_text = ''
+        for text in self.dbl.process_file(usx):
+            all_text += text
+
+        self.assertEqual('abcdefghijklmnopqrstuvwxyz', all_text)
 
 
 if __name__ == '__main__':
-    main()
+    unittest.main()

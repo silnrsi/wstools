@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<usx version="2.0">
+  <book code="MAT" style="id">A</book>
+  <para style="h">a</para>
+  <para style="toc1">b</para>
+  <para style="toc2">c</para>
+  <para style="toc3">d</para>
+  <para style="mt2">e</para>
+  <para style="mt1">f</para>
+  <para style="imt">g</para>
+  <para style="ip">h</para>
+  <para style="iot">i</para>
+  <para style="io">j</para>
+  <chapter number="1" style="c"/>
+  <para style="s">k</para>
+  <para style="r">l</para>
+  <para style="p">
+    <verse number="1" style="v"/>m</para>
+  <para style="p">n<verse number="2" style="v"/>o<verse number="3" style="v"/>p</para>
+  <para style="q">
+    <verse number="4" style="v"/>q<verse number="5" style="v"/>r</para>
+  <para style="q">s</para>
+  <para style="q">t</para>
+  <para style="p">u
+    <verse number="6" style="v"/>v<note caller="+" style="f"><char style="fr" closed="false">w</char><char style="fq" closed="false">x</char><char style="ft" closed="false">y</char></note>z</para>
+</usx>
