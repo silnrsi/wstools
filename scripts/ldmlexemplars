@@ -41,14 +41,24 @@ def main():
     args = parser.parse_args()
 
     dbl = DBL()
+
+    # The following are example of how to set the lists of exemplars
+    # from content taken from a LDML file.
+    dbl.exemplars.main = ''
+    dbl.exemplars.auxiliary = ''
+    dbl.exemplars.index = ''
+    dbl.exemplars.punctuation = ''
+
+    # Find exemplars in the data.
     dbl.load(args.project)
     dbl.process()
     dbl.analyze()
 
-    print dbl.exemplars.get_main()
-    print dbl.exemplars.get_auxiliary()
-    print dbl.exemplars.get_index()
-    print dbl.exemplars.get_punctuation()
+    # Display the exemplars.
+    print dbl.exemplars.main
+    print dbl.exemplars.auxiliary
+    print dbl.exemplars.index
+    print dbl.exemplars.punctuation
 
 
 if __name__ == '__main__':
