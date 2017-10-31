@@ -225,9 +225,8 @@ def loadLds(ldml, ldsFilename, ducetDict):
         return
 
     collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
-    if not collationElem.find('cr'):
-        crElem = etree.SubElement(collationElem, 'cr')
-        crElem.text = sortSpecString
+    crElem = ldml.addnode(collationElem[0], 'cr')
+    crElem.text = sortSpecString
         # CDATA handling done by ldml object, we hope
 
 
@@ -235,11 +234,13 @@ def _addSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
     # DefaultFont, DefaultFontSize ->
     # special/sil:external-resources/sil:fontrole[@types="default"]/sil:font[@name, @size]
     # TODO: this isn't quite right since it should handle an existing sil:fontrole[@types="default heading"]
-    fontElem = ldml.ensure_path('special/sil:external-resources/sil:fontrole[@types="default"]/sil:font')[0]
+    fontElemp = ldml.ensure_path('special/sil:external-resources/sil:fontrole[@types="default"]')[0]
+    attrs = {}
     if defaultFontValue :
-        fontElem.set('name', defaultFontValue)
+        attrs['name'] = defaultFontValue
     if defaultSizeValue :
-        fontElem.set('size', defaultSizeValue)
+        attrs['size'] = defaultSizeValue
+    fontElem = ldml.addnode(fontElemp, 'sil:font', attrib=attrs)
 
 
 def _addSsfDataPairs(ldml, pairsValue) :
@@ -251,8 +252,7 @@ def _addSsfDataPairs(ldml, pairsValue) :
         openVal = openVal.strip()
         closeVal = closeVal.strip()
         if not _findPair(matchedElem, openVal, closeVal) :
-            matchElem = ldml.subelement(matchedElem, 'sil:matched-pair',
-                                        attrib={'open': openVal, 'close': closeVal})
+            matchElem = ldml.addnode(matchedElem, 'sil:matched-pair', open=openVal, close=closeVal)
 
 def _findPair(pairElements, openValue, closeValue) :
     for elem in pairElements :
@@ -285,7 +285,7 @@ def _addSsfDataInnerQuotes(ldml, quotesValue) :
 def _addSsfDataInnerInnerQuotes(ldml, quotesValue) :
     # InnerInnerQuotes ->
     # delimiters/special/sil:quotation-marks[@level="3"]/@open, @close
-    qMark3Elem = ldml.ensure_path('delimiters/special/sil:quotation-marks[@level="3"]')[0]
+    qMark3Elem = ldml.ensure_path('delimiters/special/sil:quotation-marks/sil:quotation[@level="3"]')[0]
     (qStart, qEnd) = quotesValue.split(' ')
     qMark3Elem.set('open', qStart)
     qMark3Elem.set('close', qEnd)
@@ -295,9 +295,9 @@ def _addSsfDataContinueQuotes(ldml, contValue, contInnerValue) :
     # ContinueQuotes ->
     # delimiters/special/sil:quotation-marks[@paraContinueType]/@open, @close
     if _valueNotNo(contValue):
-        ldml.ensure_path('delimiters/special/sil:quotation-marks[@level="1"][@paraContinueType="{}"]'.format(contValue))
+        ldml.ensure_path('delimiters/special/sil:quotation-marks/sil:quotation[@level="1"][@continue="{}"]'.format(contValue))
     if _valueNotNo(contInnerValue):
-        ldml.ensure_path('delimiters/special/sil:quotation-marks[@level="2"][@paraContinueType="{}"]'.format(contInnerValue))
+        ldml.ensure_path('delimiters/special/sil:quotation-marks/sil:quotation[@level="2"][@continue="{}"]'.format(contInnerValue))
 
 def _valueNotNo(value) :
     if value is None :
@@ -667,6 +667,7 @@ if __name__ == '__main__':
         ldml = Ldml(ldmlFile)
     else:
         ldml = Ldml(None)
+    ldml.use_draft = 'generated'
     if ssfFile:
         loadSsf(ldml, ssfFile)
     if ldsFile:
