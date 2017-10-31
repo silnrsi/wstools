@@ -46,7 +46,7 @@ class DBLTests(unittest.TestCase):
     def test_get_text(self):
         usx = open('MAT.usx', 'r')
         all_text = ''
-        for text in self.dbl.process_file(usx):
+        for text in self.dbl._process_file(usx):
             all_text += text
 
         self.assertEqual('abcdefghijklmnopqrstuvwxyz', all_text)

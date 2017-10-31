@@ -46,7 +46,7 @@ class DBL(object):
         self.exemplars = Exemplars()
         self.project = None
 
-    def load(self, zipfilename):
+    def open(self, zipfilename):
         """Open a DBL project zip file."""
         self.project = zipfile.ZipFile(zipfilename, 'r')
 
@@ -55,26 +55,29 @@ class DBL(object):
         for filename in self.project.namelist():
             if filename.endswith('.usx'):
                 usx = self.project.open(filename, 'r')
-                for text in self.process_file(usx):
+                for text in self._process_file(usx):
                     self.exemplars.process(text)
 
-    def process_file(self, usx):
+    def _process_file(self, usx):
         """Process one USX file."""
         tree = ET.parse(usx)
         for marker in tree.iterfind('para'):
-            for text in self.get_text(marker):
+            for text in self._get_text(marker):
                 yield text
         usx.close()
 
     @staticmethod
-    def get_text(element):
+    def _get_text(element):
         """Extract all text from an ET Element."""
         for text in element.itertext():
             yield text.strip()
 
-    def analyze(self):
-        """Analyze a DBL project."""
+    def close(self):
+        """Close a DBL project."""
         self.project.close()
+
+    def analyze(self):
+        """Analyze DBL project(s)."""
         self.exemplars.analyze()
 
 

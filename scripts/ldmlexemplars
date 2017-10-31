@@ -37,7 +37,7 @@ except ImportError:
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('project', help='DBL project zip file')
+    parser.add_argument('project', nargs='+', help='DBL project zip file')
     args = parser.parse_args()
 
     dbl = DBL()
@@ -50,8 +50,10 @@ def main():
     dbl.exemplars.punctuation = ''
 
     # Find exemplars in the data.
-    dbl.load(args.project)
-    dbl.process()
+    for project in args.project:
+        dbl.open(project)
+        dbl.process()
+        dbl.close()
     dbl.analyze()
 
     # Display the exemplars.
