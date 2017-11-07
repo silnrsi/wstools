@@ -21,11 +21,18 @@ try:
 except ImportError:
     sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
+# try:
+#     from dbl import DBL
+# except ImportError:
+#     sys.path.append(sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'lib', 'wstools'))))
+#     from dbl import DBL
+
 import json
 
 from ConfigParser import RawConfigParser
 
 supplementalPath = "/../../sldr/python/lib/sldr/"
+downloadPath = "./temp_download/"
 
 try:
     from ldml import Ldml
@@ -107,72 +114,172 @@ class DBLReader(object):
     def __init__(self):
         import dblauthkey
         (key1, key2) = dblauthkey.authkey()
+        self.secretKey = key2
         self.auth = DBLAuthV1(key1, key2)
 
     def testAccess(self):
-        response = requests.get('https://thedigitalbiblelibrary.org', auth=self.auth,
-                                headers={'Date': format_date_time(mktime(datetime.now().timetuple())),
-                                         'Content-Type': 'application/json'})
+        response = requests.get('https://thedigitalbiblelibrary.org',
+                                auth=self.auth, headers=self._jsonHeaders())
         return response.status_code
 
     def getLicenses(self):
-        response = requests.get('https://thedigitalbiblelibrary.org/api/licenses', auth=self.auth,
-                                headers={'Date': format_date_time(mktime(datetime.now().timetuple())),
-                                         'Content-Type': 'application/json'})
+        response = requests.get('https://thedigitalbiblelibrary.org/api/licenses',
+                                auth=self.auth, headers=self._jsonHeaders())
         if response.status_code == 200:
             licensesJson = response.content
             result = json.loads(licensesJson)
         return response.status_code
 
+
     def getEntries(self):
-        response = requests.get('https://thedigitalbiblelibrary.org/api/publishable_entries_list', auth=self.auth,
-                                headers={'Date': format_date_time(mktime(datetime.now().timetuple())),
-                                         'Content-Type': 'application/json'})
-        if response.status_code == 200:
-            entriesJson = response.content
-            result = json.loads(entriesJson)
-            return result
+
+        fullResult = {}
+        httpResult = 1000
+
+        #accessTypeKeys = ['publishable', 'public', 'open_access', 'owned']
+        accessTypeKeys = ['owned']
+        for accessType in accessTypeKeys:
+            response = requests.get('https://thedigitalbiblelibrary.org/api/' + accessType + '_entries_list',
+                                auth=self.auth, headers=self._jsonHeaders())
+            if response.status_code == 200:
+                entriesJson = response.content
+                entriesDict = json.loads(entriesJson)
+                for entry in entriesDict['list']:
+                    id = entry['id']
+                    langCode = entry['language_code']
+                    if id in fullResult:
+                        (bogus, oldAccess) = fullResult[id]
+                        if oldAccess != accessType:
+                            print "changing " + langCode + "_" + id + " from " + oldAccess + " to " + accessType
+                    fullResult[id] = (langCode, accessType)
+            httpResult = min(httpResult, response.status_code)
+
+        if httpResult != 200:
+            return httpResult
         else:
-            entriesJson = ""
-            result = {}
-            return response.status_code
+            return fullResult
+
+    # end of getEntries
 
 
-    def getOneEntry(self, entryId):
-        # 8 = Creative Commons
-        # 126 = WBT Non-Commercial Digital Text Distribution Agreement with YouVersion
+    def downloadOneEntry(self, entryId, langCode, accessType):
+
+        # Get the metadata that includes the license key for reading.
         response = requests.get('https://thedigitalbiblelibrary.org/api/entries/' + entryId,
-                                auth=self.auth,
-                                headers={'Date': format_date_time(mktime(datetime.now().timetuple())),
-                                         'Content-Type': 'application/json'})
+                                auth=self.auth, headers=self._jsonHeaders())
         if response.status_code == 200:
             entryJson = response.content
             entryMetaData = json.loads(entryJson)
             licenses = entryMetaData['licenses']
-            if len(licenses) > 0:
-                licenseId = (licenses[0])['id']
-                response = requests.get('https://thedigitalbiblelibrary.org/api/entries/' + entryId + "/revision/latest/license/" + str(licenseId),
-                                        auth=self.auth,
-                                        headers={'Date': format_date_time(mktime(datetime.now().timetuple())),
-                                                 'Content-Type': 'application/json'})
+            if accessType == 'owned':
+                licenseId = "owner"
+            elif len(licenses) > 0:
+                licenseId = str((licenses[0])['id'])
+                #oldStyleAuth = "&email=sharon_correll@sil.org&key=" + '08325c5e2be189f3361e58c038a04015'  ### self.secretKey
+            else:
+                licenseId = 'none'
+
+            if licenseId != 'none':
+                entryUrl = 'https://thedigitalbiblelibrary.org/api/entries/' + entryId + "/revisions/latest/licenses/" + licenseId
+                response = requests.get(entryUrl, auth=self.auth, headers=self._jsonHeaders())
                 if response.status_code == 200:
                     entryJson = response.content
-                    result = json.loads(entryJson)
+                    entryData = json.loads(entryJson)
+
+                    result = {}
+
+                    urlList = entryData['urls']
+                    downloadZip = False
+                    for url in urlList:
+                        path = url['path']
+                        downloadUrl = None
+                        if path[-4:] == ".lds":
+                            downloadUrl = url['url']
+                            ext = ".lds"
+                            key = "lds"
+                        elif path[-4:] == ".ssf":
+                            downloadUrl = url['url']
+                            ext = ".ssf"
+                            key = "ssf"
+                        elif path[-5:] == ".ldml":
+                            downloadUrl = url['url']
+                            ext = ".ldml"
+                            key = "ldml"
+                        elif path[-4:] == ".usx":
+                            downloadZip = True
+
+                        if path[-4:] == ".sfm" or path[-5:] == ".usfm" or path[-4:] == ".ptx":
+                            print "Found SFM file!!"
+
+                        if downloadUrl is not None:
+                            downloadUrl = downloadUrl.replace("http:", "https:")
+                            response = requests.get(downloadUrl, auth=self.auth, headers=self._jsonHeaders())
+                            if response.status_code != 200:
+                                downloadUrl = downloadUrl.replace("/revisions/", "/revision/")
+                                downloadUrl = downloadUrl.replace("/licenses/", "/license/")
+                                response = requests.get(downloadUrl, auth=self.auth, headers=self._jsonHeaders())
+                            if response.status_code == 200:
+                                downloadFileName = langCode + "_" + entryId + ext
+                                #self._saveDownloadedFile(downloadPath, downloadFileName, response.content)
+                                result[key] = downloadPath + downloadFileName
+                                print langCode + " - DOWNLOADED " + downloadUrl
+                            ###else:
+                            ### print langCode + " - can't download file " + downloadUrl + ": " + str(response.status_code)
+
+                    # end for...urlList
+
+                    if downloadZip:
+                        response = requests.get(
+                            'https://thedigitalbiblelibrary.org/api/entries/' + entryId + "/revisions/latest/licenses/"
+                                        + licenseId + ".zip",
+                            auth=self.auth, headers=self._jsonHeaders())
+                        if response.status_code == 200:
+                            downloadFileName = langCode + "_" + entryId + ".zip"
+                            #self._saveDownloadedFile(downloadPath, downloadFileName, response.content)
+                            result['usx'] = downloadPath + downloadFileName
+                            print langCode + " - DOWNLOADED " + downloadFileName
+                        else:
+                            print langCode + " - can't download zip file" + ": " + str(response.status_code)
+                    else:
+                        print langCode + " - no usx files"
+
                     return result
                 else:
-                    entryJson = ""
-                    result = {}
+                    print langCode + " - can't access files"
                     return response.status_code
+                # end if response.status_code == 200
             else:
+                print langCode + "_" + entryId + " - no licenses"
                 return 403  # forbidden
         else:
             return response.status_code
 
+    # end of downloadOneEntry
+
+    #def getEntryFiles(self, entryId):
+
+
+    def _jsonHeaders(self):
+        return {'Date': format_date_time(mktime(datetime.now().timetuple())),
+                'Content-Type': 'application/json'}
+
+
+    def _saveDownloadedFile(self, dirPath, filename, contents):
+        self._ensureDir(dirPath)
+        fullname = dirPath + filename
+        outf = open(fullname, 'wb')
+        outf.write(contents)
+        outf.close()
+
+
+    def _ensureDir(self, dirPath):
+        if not os.path.exists(dirPath):
+            os.makedirs(dirPath)
 
 #end of class DBLReader
 
 
-def loadSsf(ldml, ssfFilename):
+def processSsf(ldml, ssfFilename):
     if isinstance(ssfFilename, basestring):
         ssfFile = open(ssfFilename, 'rb')
     else:
@@ -212,7 +319,7 @@ def loadSsf(ldml, ssfFilename):
         _addSsfDataInnerInnerQuotes(ldml, ssfLangData['InnerInnerQuotes'])
 
 
-def loadLds(ldml, ldsFilename, ducetDict):
+def processLds(ldml, ldsFilename, ducetDict):
     if isinstance(ldsFilename, basestring):
         ldsFile = open(ldsFilename, 'r')
     else:
@@ -227,7 +334,7 @@ def loadLds(ldml, ldsFilename, ducetDict):
     collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
     crElem = ldml.addnode(collationElem[0], 'cr')
     crElem.text = sortSpecString
-        # CDATA handling done by ldml object, we hope
+    # CDATA handling done by ldml object, we hope
 
 
 def _addSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
@@ -280,7 +387,6 @@ def _addSsfDataInnerQuotes(ldml, quotesValue) :
     qStartElem.text = qStart
     qEndElem.text = qEnd
 
-#end of _addSsfDataInnerQuotes
 
 def _addSsfDataInnerInnerQuotes(ldml, quotesValue) :
     # InnerInnerQuotes ->
@@ -369,6 +475,7 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
                     currBase = s
                     alphabet.append(s)
                 currLevel = 2
+    # end if
 
     print collObj.asICU()
                         
@@ -378,6 +485,7 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
 # end of calcSortLdsData
 
 
+# OBSOLETE
 def _minimizeSortSpec(sortSpec, ducetDict) :
     # First, look at each line individually and see which have information we need to retain.
     # Note that we don't try to minimize the lines themselves, just the set of lines.
@@ -522,7 +630,7 @@ def _charToInt(charsStr) :
         else : ### isinstance(charItem, list) :
             result.append(ord(charsStr[i]))
         i = i + 1
-    # end of while
+    # end while
 
     return result
 
@@ -577,47 +685,41 @@ def _debugStr(item) :
     return repr(result)
 
 
-# Top level
-def _run() :
-    mainPath = "C:/WS_Tech/SSF2LDML/"
-    inputPath = mainPath + "testdata/"
 
-    #(key1, key2) = dblauthkey.authkey()
-    #tauth = DBLAuthV1(key1, key2)
-    #response = requests.get('https://thedigitalbiblelibrary.org/api/publishable_entries_list', auth=tauth,
-    #                        headers={'Date': format_date_time(mktime(datetime.now().timetuple())),
-    #                                 'Content-Type': 'application/json'})
+def downloadFromDbl(mainPath, inputPath, langCode = ''):
+    dblreader = DBLReader()
 
-    # dblreader = DBLReader()
-    # code = dblreader.testAccess()
-    # t = dblreader.getLicenses()
-    # if code != 200:
-    #     print "ERROR in accessing DBL; HTTP response code = ",code
-    # entriesDict = dblreader.getEntries()
-    # if isinstance(entriesDict, int):
-    #     print "ERROR in obtaining DBL entries; HTTP response code = ",code
-    # else:
-    #     entriesCnt = entriesDict['count']
-    #     entriesList = entriesDict['list']
-    #     for entry in entriesList:
-    #         entryId = entry['id']
-    #         entryLangCode = entry['language_code']
-    #         entryInfo = dblreader.getOneEntry(entryId)
+    ###code = dblreader.testAccess()
+    ###t = dblreader.getLicenses()
+    ###if code != 200:
+    ###    print "ERROR in accessing DBL; HTTP response code = ",code
+
+    entriesDict = dblreader.getEntries()
+    if isinstance(entriesDict, int):
+        print "ERROR in obtaining DBL entries; HTTP response code = ",entriesDict
+        return False
+    else:
+        for (entryId, entryInfo) in entriesDict.iteritems():
+            (entryLangCode, entryAccessType) = entryInfo
+            if entryLangCode != 'eng' and entryLangCode != 'en':
+                entryInfo = dblreader.downloadOneEntry(entryId, entryLangCode, entryAccessType)
+        return True
 
 
-    #testLangs = [('aau','Latn'), ('aca','Latn')]
-    testLangs = [('zzz', 'Latn')]
-    
-    #ldml.test_import()
-
+def processProjects(mainPath, inputPath):
     import sys
     if sys.maxunicode == 0x10FFFF:
         print 'Python built with UCS4 (wide unicode) support'
     else:
         print 'Python built with UCS2 (narrow unicode) support'
 
+    # testLangs = [('aau','Latn'), ('aca','Latn')]
+    testLangs = [('zzz', 'Latn')]
+
     ducetDict = ducet.readDucet()
 
+    max = 3
+    count = 0
     for (langCode, scriptCode) in testLangs:
         ldmlFilename = inputPath + langCode + '/' + langCode + "_" + scriptCode + ".xml"
         if os.path.exists(ldmlFilename):
@@ -625,58 +727,79 @@ def _run() :
         else:
             ldml = Ldml(None, ducetDict)
 
-        ssfFilename = inputPath + langCode + '/' + langCode + ".ssf"
-        ldsFilename = inputPath + langCode + '/' + langCode + ".lds"
+        #ssfFilename = inputPath + langCode + '/' + langCode + ".ssf"
+        #ldsFilename = inputPath + langCode + '/' + langCode + ".lds"
+        ssfFilename = entryInfo['ssf'] if entryInfo['ssf'] else None
+        ldsFilename = entryInfo['lds'] if entryInfo['lds'] else None
         if os.path.isfile(ssfFilename):
-            loadSsf(ldml, ssfFilename)
+            processSsf(ldml, ssfFilename)
             if os.path.isfile(ldsFilename):
-                loadLds(ldml, ldsFilename, ducetDict)
+                processLds(ldml, ldsFilename, ducetDict)
             ldmlOutputFilename = inputPath + langCode + '/' + langCode + "_" + scriptCode + "_out.xml"
             ldmlOutFile = codecs.open(ldmlOutputFilename, 'w', encoding="utf-8")
             ldml.serialize_xml(ldmlOutFile.write)
+
+            count = count + 1
         else :
             print "missing SSF file: " + ssfFilename
 
-    print ""  
-    print "Done"
+        if count >= max:
+            break
 
+    # end for...testLangs
+
+# end of processProjects
+
+
+def downloadAndProcess():
+    mainPath = "C:/WS_Tech/SSF2LDML/"
+    inputPath = mainPath + "testdata/"
+    ok = downloadFromDbl(mainPath, inputPath)
+    #if ok:
+    #    processProjects(mainPath, inputPath)
+
+# end of downloadAndProcess
 
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
+    parser.add_argument('-D','--dbl', default='true')
     parser.add_argument('-l','--ldml',default="C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.xml",help='input LDML base file')
     parser.add_argument('-s','--ssf',default="C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.ssf",help='input SSF file')
     parser.add_argument('-d','--lds',default="C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.lds",help='input LDS file')
     parser.add_argument('-o','--outfile',default="C:/WS_Tech/SSF2LDML/testdata/zzz/zzz_Latn_out.xml",help='output LDML file')
     args = parser.parse_args()
-    #if not args.ssf:
-    #    _run()
 
-    ldmlFile = args.ldml
-    ssfFile = args.ssf
-    ldsFile = args.lds
-    outFile = args.outfile
+    if args.dbl == 'true':
+        downloadAndProcess()
 
-    #ldmlFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.xml"
-    #ssfFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.ssf"
-    #ldsFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.lds"
-    #outFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz_Latn_out.xml"
-
-    if ldmlFile:
-        ldml = Ldml(ldmlFile)
     else:
-        ldml = Ldml(None)
-    ldml.use_draft = 'generated'
-    if ssfFile:
-        loadSsf(ldml, ssfFile)
-    if ldsFile:
-        import ducet
-        import collation
-        ducetDict = ducet.readDucet()
-        loadLds(ldml, ldsFile, ducetDict)
-    if outFile:
-        outf = codecs.open(outFile, 'w', encoding="utf-8")
-    else:
-        outf = sys.stdout
-    ldml.serialize_xml(outf.write)
+        # Just process one set of files that are already present.
+        ldmlFile = args.ldml
+        ssfFile = args.ssf
+        ldsFile = args.lds
+        outFile = args.outfile
+
+        #ldmlFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.xml"
+        #ssfFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.ssf"
+        #ldsFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.lds"
+        #outFile = "C:/WS_Tech/SSF2LDML/testdata/zzz/zzz_Latn_out.xml"
+
+        if ldmlFile:
+            ldml = Ldml(ldmlFile)
+        else:
+            ldml = Ldml(None)
+        ldml.use_draft = 'generated'
+        if ssfFile:
+            processSsf(ldml, ssfFile)
+        if ldsFile:
+            import ducet
+            import collation
+            ducetDict = ducet.readDucet()
+            processLds(ldml, ldsFile, ducetDict)
+        if outFile:
+            outf = codecs.open(outFile, 'w', encoding="utf-8")
+        else:
+            outf = sys.stdout
+        ldml.serialize_xml(outf.write)
