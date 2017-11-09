@@ -26,6 +26,7 @@
 
 import os
 import sys
+import codecs
 from argparse import ArgumentParser
 
 try:
@@ -51,9 +52,14 @@ def main():
 
     # Find exemplars in the data.
     for project in args.project:
-        dbl.open(project)
-        dbl.process()
-        dbl.close()
+        if project.endswith('.zip'):
+            dbl.open(project)
+            dbl.process()
+            dbl.close()
+        else:
+            with codecs.open(project, 'r', encoding='utf-8') as textfile:
+                for line in textfile:
+                    dbl.exemplars.process(line)
     dbl.analyze()
 
     # Display the exemplars.
@@ -61,6 +67,7 @@ def main():
     print dbl.exemplars.auxiliary
     print dbl.exemplars.index
     print dbl.exemplars.punctuation
+    print dbl.exemplars.graphemes
 
 
 if __name__ == '__main__':
