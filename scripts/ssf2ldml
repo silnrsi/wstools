@@ -207,22 +207,23 @@ class DBLReader(object):
                             key = "ldml"
                         elif path[-4:] == ".usx":
                             downloadZip = True
+                            break
 
                         if path[-4:] == ".sfm" or path[-5:] == ".usfm" or path[-4:] == ".ptx":
                             print "Found SFM file!!"
 
-                        if downloadUrl is not None:
-                            downloadUrl = downloadUrl.replace("http:", "https:")
-                            response = requests.get(downloadUrl, auth=self.auth, headers=self._jsonHeaders())
-                            if response.status_code != 200:
-                                downloadUrl = downloadUrl.replace("/revisions/", "/revision/")
-                                downloadUrl = downloadUrl.replace("/licenses/", "/license/")
-                                response = requests.get(downloadUrl, auth=self.auth, headers=self._jsonHeaders())
-                            if response.status_code == 200:
-                                downloadFileName = langCode + "_" + entryId + ext
-                                #self._saveDownloadedFile(downloadPath, downloadFileName, response.content)
-                                result[key] = downloadPath + downloadFileName
-                                print langCode + " - DOWNLOADED " + downloadUrl
+                        # if downloadUrl is not None:
+                        #     downloadUrl = downloadUrl.replace("http:", "https:")
+                        #     response = requests.get(downloadUrl, auth=self.auth, headers=self._jsonHeaders())
+                        #     if response.status_code != 200:
+                        #         downloadUrl = downloadUrl.replace("/revisions/", "/revision/")
+                        #         downloadUrl = downloadUrl.replace("/licenses/", "/license/")
+                        #         response = requests.get(downloadUrl, auth=self.auth, headers=self._jsonHeaders())
+                        #     if response.status_code == 200:
+                        #         downloadFileName = langCode + "_" + entryId + ext
+                        #         #self._saveDownloadedFile(downloadPath, downloadFileName, response.content)
+                        #         result[key] = downloadPath + downloadFileName
+                        #         print langCode + " - DOWNLOADED " + downloadUrl
                             ###else:
                             ### print langCode + " - can't download file " + downloadUrl + ": " + str(response.status_code)
 
@@ -595,6 +596,9 @@ def _minimizeSortSpec(sortSpec, ducetDict) :
 
     return minSpec
 
+# end of minimizeSortSpec
+
+# OBSOLETE
 def _howFarOff(sortSpec, uChar, iline, dir, ducetDict) :
     if dir == 1 :
         rng = range(iline + 1, len(sortSpec))
@@ -609,6 +613,7 @@ def _howFarOff(sortSpec, uChar, iline, dir, ducetDict) :
 
     return iline2 - iline
 
+# OBSOLETE
 def _compareToken(token):
     if token == "<": return 1
     elif token == "<<": return 2
@@ -616,6 +621,7 @@ def _compareToken(token):
     elif token == "=": return 0
     return -1  # not a token
 
+# OBSOLETE
 def _charToInt(charsStr) :
     # There's a codec that will do this
     result = []
@@ -634,7 +640,7 @@ def _charToInt(charsStr) :
 
     return result
 
-
+# OBSOLETE
 def _unicodeEntity(ordValue) :
     if isinstance(ordValue, int) :
         ordValue = [ordValue]
@@ -656,7 +662,7 @@ def _unicodeEntity(ordValue) :
 
     return result
 
-
+# OBSOLETE
 def _intToUnichr(item) :
     if isinstance(item, int) :
         return unichr(item)

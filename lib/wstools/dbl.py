@@ -66,6 +66,14 @@ class DBL(object):
                 yield text
         usx.close()
 
+    def file_contents_with_ext(self, ext):
+        """Return the contents of the file with the given extension, if any."""
+        for filename in self.project.namelist():
+            if filename.endswith('.'+ext):
+                contents = self.project.open(filename, 'r')
+                return contents
+        return None
+
     @staticmethod
     def _get_text(element):
         """Extract all text from an ET Element."""
