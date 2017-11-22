@@ -28,6 +28,7 @@ import os
 import sys
 import codecs
 from argparse import ArgumentParser
+from icu import UNICODE_VERSION, ICU_VERSION, VERSION
 
 try:
     from wstools.dbl import DBL
@@ -37,8 +38,13 @@ except ImportError:
 
 
 def main():
-    parser = ArgumentParser()
+    parser = ArgumentParser(
+        description='Find exemplars for LDML files')
     parser.add_argument('project', nargs='+', help='DBL project zip file')
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s: Unicode: {} ICU: {} PyICU: {}'.format(UNICODE_VERSION,
+                                                                                 ICU_VERSION,
+                                                                                 VERSION))
     args = parser.parse_args()
 
     dbl = DBL()
@@ -67,6 +73,7 @@ def main():
     print dbl.exemplars.auxiliary
     print dbl.exemplars.index
     print dbl.exemplars.punctuation
+    print dbl.exemplars.digits
     print dbl.exemplars.graphemes
 
 
