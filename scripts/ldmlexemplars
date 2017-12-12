@@ -76,6 +76,8 @@ def main():
     print dbl.exemplars.punctuation
     print dbl.exemplars.digits
     print dbl.exemplars.graphemes
+    print dbl.exemplars.script
+    # print '{}: {}'.format(project, dbl.exemplars.script)
 
 
 if __name__ == '__main__':
