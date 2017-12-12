@@ -55,18 +55,19 @@ def main():
     dbl.exemplars.auxiliary = ''
     dbl.exemplars.index = ''
     dbl.exemplars.punctuation = ''
+    dbl.exemplars.digits = ''
 
     # Find exemplars in the data.
     for project in args.project:
         if project.endswith('.zip'):
-            dbl.open(project)
-            dbl.process()
-            dbl.close()
+            dbl.open_project(project)
+            dbl.process_project()
+            dbl.close_project()
         else:
             with codecs.open(project, 'r', encoding='utf-8') as textfile:
                 for line in textfile:
                     dbl.exemplars.process(line)
-    dbl.analyze()
+    dbl.analyze_projects()
 
     # Display the exemplars.
     print dbl.exemplars.main

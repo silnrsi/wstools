@@ -46,11 +46,11 @@ class DBL(object):
         self.exemplars = Exemplars()
         self.project = None
 
-    def open(self, zipfilename):
+    def open_project(self, zipfilename):
         """Open a DBL project zip file."""
         self.project = zipfile.ZipFile(zipfilename, 'r')
 
-    def process(self):
+    def process_project(self):
         """Process a DBL project."""
         for filename in self.project.namelist():
             if filename.endswith('.usx'):
@@ -80,11 +80,11 @@ class DBL(object):
         for text in element.itertext():
             yield text.strip()
 
-    def close(self):
+    def close_project(self):
         """Close a DBL project."""
         self.project.close()
 
-    def analyze(self):
+    def analyze_projects(self):
         """Analyze DBL project(s)."""
         self.exemplars.analyze()
 
