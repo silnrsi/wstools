@@ -51,14 +51,23 @@ def main():
 
     # The following are example of how to set the lists of exemplars
     # from content taken from a LDML file.
-    dbl.exemplars.main = ''
-    dbl.exemplars.auxiliary = ''
-    dbl.exemplars.index = ''
-    dbl.exemplars.punctuation = ''
-    dbl.exemplars.digits = ''
+
+    # User settable configuration.
+    dbl.exemplars.many_bases = 5
+    dbl.exemplars.frequent = 10
+
+    # From existing LDML files.
+    # dbl.exemplars.main = ''
+    # dbl.exemplars.main = u'[{ng} {ng\ua78c}]'
+    # dbl.exemplars.auxiliary = ''
+    # dbl.exemplars.index = ''
+    # dbl.exemplars.punctuation = ''
+    # dbl.exemplars.digits = ''
 
     # Find exemplars in the data.
+    ldml_filename = ''
     for project in args.project:
+        ldml_filename = project
         if project.endswith('.zip'):
             dbl.open_project(project)
             dbl.process_project()
@@ -70,14 +79,15 @@ def main():
     dbl.analyze_projects()
 
     # Display the exemplars.
-    print dbl.exemplars.main
-    print dbl.exemplars.auxiliary
-    print dbl.exemplars.index
-    print dbl.exemplars.punctuation
-    print dbl.exemplars.digits
-    print dbl.exemplars.graphemes
-    print dbl.exemplars.script
-    # print '{}: {}'.format(project, dbl.exemplars.script)
+    with codecs.open(ldml_filename + '.ldml', 'w', encoding='utf-8') as ldml_file:
+        ldml_file.write(' '.join(args.project) + '\n')
+        ldml_file.write(dbl.exemplars.main + '\n')
+        ldml_file.write(dbl.exemplars.auxiliary + '\n')
+        ldml_file.write(dbl.exemplars.index + '\n')
+        ldml_file.write(dbl.exemplars.punctuation + '\n')
+        ldml_file.write(dbl.exemplars.digits + '\n')
+        ldml_file.write(dbl.exemplars.graphemes + '\n')
+        ldml_file.write(dbl.exemplars.script + '\n')
 
 
 if __name__ == '__main__':
