@@ -49,20 +49,21 @@ def main():
 
     dbl = DBL()
 
-    # The following are example of how to set the lists of exemplars
-    # from content taken from a LDML file.
+    # The following are examples of how to set the lists of exemplars
+    # from content taken from a LDML file. Other settings can be changed
+    # as well. If a LDML file has no exemplar information for a particular set,
+    # there is no need to initialize the Exemplar class with an empty set.
 
     # User settable configuration.
     dbl.exemplars.many_bases = 5
     dbl.exemplars.frequent = 10
 
     # From existing LDML files.
-    # dbl.exemplars.main = ''
-    # dbl.exemplars.main = u'[{ng} {ng\ua78c}]'
-    # dbl.exemplars.auxiliary = ''
-    # dbl.exemplars.index = ''
-    # dbl.exemplars.punctuation = ''
-    # dbl.exemplars.digits = ''
+    dbl.exemplars.main = '[]'
+    dbl.exemplars.auxiliary = '[]'
+    dbl.exemplars.index = '[]'
+    dbl.exemplars.punctuation = '[]'
+    dbl.exemplars.digits = '[]'
 
     # Find exemplars in the data.
     ldml_filename = ''
