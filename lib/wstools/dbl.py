@@ -45,6 +45,7 @@ class DBL(object):
     def __init__(self):
         self.exemplars = Exemplars()
         self.project = None
+        self.publishable = set()
 
     def open_project(self, zipfilename):
         """Open a DBL project zip file."""
@@ -52,18 +53,35 @@ class DBL(object):
 
     def process_project(self):
         """Process a DBL project."""
+
+        # Read stylesheet.
+        for filename in self.project.namelist():
+            if filename == 'styles.xml':
+                style = self.project.open(filename, 'r')
+                self._read_stylesheet(style)
+
+        # Process text data.
         for filename in self.project.namelist():
             if filename.endswith('.usx'):
                 usx = self.project.open(filename, 'r')
-                for text in self._process_file(usx):
+                for text in self._process_usx_file(usx):
                     self.exemplars.process(text)
 
-    def _process_file(self, usx):
+    def _read_stylesheet(self, style):
+        """Read stylesheet and record which markers are publishable."""
+        tree = ET.parse(style)
+        for marker in tree.findall('style'):
+            if marker.get('publishable') == 'true':
+                self.publishable.add(marker.get('id'))
+
+    def _process_usx_file(self, usx):
         """Process one USX file."""
         tree = ET.parse(usx)
-        for marker in tree.iterfind('para'):
-            for text in self._get_text(marker):
-                yield text
+        root = next(tree.iter())
+        for marker in list(root):
+            if marker.get('style') in self.publishable:
+                for text in self._get_text(marker):
+                    yield text
         usx.close()
 
     def file_contents_with_ext(self, ext):

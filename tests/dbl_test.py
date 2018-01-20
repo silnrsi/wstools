@@ -44,9 +44,12 @@ class DBLTests(unittest.TestCase):
         pass
 
     def test_get_text(self):
+        style = open('styles.xml', 'r')
+        self.dbl._read_stylesheet(style)
+
         usx = open('MAT.usx', 'r')
         all_text = ''
-        for text in self.dbl._process_file(usx):
+        for text in self.dbl._process_usx_file(usx):
             all_text += text
 
         self.assertEqual('abcdefghijklmnopqrstuvwxyz', all_text)
