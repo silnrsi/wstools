@@ -29,6 +29,8 @@ import sys
 import codecs
 from argparse import ArgumentParser
 from icu import UNICODE_VERSION, ICU_VERSION, VERSION
+import palaso.sfm as sfm
+from palaso.sfm import usfm, style
 
 try:
     from wstools.dbl import DBL
@@ -74,9 +76,17 @@ def main():
             dbl.process_project()
             dbl.close_project()
         else:
-            with codecs.open(project, 'r', encoding='utf-8') as textfile:
-                for line in textfile:
-                    dbl.exemplars.process(line)
+            with codecs.open(project, 'r', encoding='utf_8_sig') as source:
+                if project.endswith('.SFM'):
+                    doc = sfm.sfilter(sfm.text_properties('publishable','vernacular'),
+                                      usfm.parser(source))
+                    for txt in _flatten(doc):
+                        with codecs.open(project + '.text', 'w', encoding='utf-8') as textfile:
+                            textfile.write(txt)
+                            # dbl.exemplars.process(txt)
+                else:
+                    for line in source:
+                        dbl.exemplars.process(line)
     dbl.analyze_projects()
 
     # Display the exemplars.
@@ -89,6 +99,12 @@ def main():
         ldml_file.write(dbl.exemplars.digits + '\n')
         ldml_file.write(dbl.exemplars.graphemes + '\n')
         ldml_file.write(dbl.exemplars.script + '\n')
+
+
+def _flatten(doc):
+    return sfm.sreduce(lambda e,ts,_: ts,
+                       lambda e,ts: ts.append(e) or ts,
+                       doc, [])
 
 
 if __name__ == '__main__':
