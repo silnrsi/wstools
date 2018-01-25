@@ -78,8 +78,7 @@ def main():
         else:
             with codecs.open(project, 'r', encoding='utf_8_sig') as source:
                 if project.endswith('.SFM'):
-                    doc = sfm.sfilter(sfm.text_properties('publishable','vernacular'),
-                                      usfm.parser(source))
+                    doc = sfm.sfilter(text_for_exemplars, usfm.parser(source))
                     for txt in _flatten(doc):
                         with codecs.open(project + '.text', 'w', encoding='utf-8') as textfile:
                             textfile.write(txt)
@@ -99,6 +98,11 @@ def main():
         ldml_file.write(dbl.exemplars.digits + '\n')
         ldml_file.write(dbl.exemplars.graphemes + '\n')
         ldml_file.write(dbl.exemplars.script + '\n')
+
+
+def text_for_exemplars(e, props=set(("publishable", "vernacular"))):
+    es = set(e.meta.get('TextProperties', []))
+    return "note" not in es and props <= es
 
 
 def _flatten(doc):
