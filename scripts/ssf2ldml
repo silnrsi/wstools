@@ -21,28 +21,30 @@ try:
 except ImportError:
     sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-# try:
-#     from dbl import DBL
-# except ImportError:
-#     sys.path.append(sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'lib', 'wstools'))))
-#     from dbl import DBL
+try:
+    from dbl import DBL
+except ImportError:
+    relpath = os.path.join(os.path.dirname(__file__), '..', 'lib', 'wstools')
+    sys.path.append(sys.path.append(os.path.abspath(relpath)))
+    from dbl import DBL
 
 import json
 
 from ConfigParser import RawConfigParser
 
-supplementalPath = "/../../sldr/python/lib/sldr/"
+libPath = "../../../sldr/python/lib/sldr/"
 downloadPath = "./temp_download/"
 
 try:
     from ldml import Ldml
     from collation import Collation, CollElement
+    import ducet
 except ImportError:
-    sys.path.append(os.path.abspath(os.path.dirname(__file__) + supplementalPath))
+    sys.path.append(os.path.abspath(os.path.dirname(__file__) + libPath))
     from ldml import Ldml
     from collation import Collation, CollElement
+    import ducet
 
-import ducet
 
 ##import xml.etree.cElementTree as etree
 # lxml preserves comments, also handles namespaces better:
@@ -214,11 +216,9 @@ class DBLReader(object):
 
                         # if downloadUrl is not None:
                         #     downloadUrl = downloadUrl.replace("http:", "https:")
+                        #     # KLUDGE to account for bug:
+                        #     downloadUrl = downloadUrl.replace("licenses/owner/", "licenses/owner/release/")
                         #     response = requests.get(downloadUrl, auth=self.auth, headers=self._jsonHeaders())
-                        #     if response.status_code != 200:
-                        #         downloadUrl = downloadUrl.replace("/revisions/", "/revision/")
-                        #         downloadUrl = downloadUrl.replace("/licenses/", "/license/")
-                        #         response = requests.get(downloadUrl, auth=self.auth, headers=self._jsonHeaders())
                         #     if response.status_code == 200:
                         #         downloadFileName = langCode + "_" + entryId + ext
                         #         #self._saveDownloadedFile(downloadPath, downloadFileName, response.content)
@@ -236,7 +236,7 @@ class DBLReader(object):
                             auth=self.auth, headers=self._jsonHeaders())
                         if response.status_code == 200:
                             downloadFileName = langCode + "_" + entryId + ".zip"
-                            #self._saveDownloadedFile(downloadPath, downloadFileName, response.content)
+                            self._saveDownloadedFile(downloadPath, downloadFileName, response.content)
                             result['usx'] = downloadPath + downloadFileName
                             print langCode + " - DOWNLOADED " + downloadFileName
                         else:
@@ -438,7 +438,7 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
 
     # Generate a data structure similar to a sort tailoring for the list of characters.
     sortResult = []
-    collObj = collation.Collation()
+    collObj = Collation()
     alphabet = []
     if len(valueList) > 0 :
         currBase = None
@@ -471,7 +471,7 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
 
                 for s in slashItems:
                     if currBase is not None:
-                        collObj[s] = collation.CollElement(currBase, currLevel)
+                        collObj[s] = CollElement(currBase, currLevel)
                     currLevel = 3
                     currBase = s
                     alphabet.append(s)
@@ -708,61 +708,174 @@ def downloadFromDbl(mainPath, inputPath, langCode = ''):
         for (entryId, entryInfo) in entriesDict.iteritems():
             (entryLangCode, entryAccessType) = entryInfo
             if entryLangCode != 'eng' and entryLangCode != 'en':
+                print "Downloading: " + entryId + " - " + entryLangCode
                 entryInfo = dblreader.downloadOneEntry(entryId, entryLangCode, entryAccessType)
         return True
 
 
-def processProjects(mainPath, inputPath):
+def processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, langCode):
+    fullFilename = inputPath + filename
+    dblObj = DBL()
+
+    dblObj.open_project(fullFilename)
+
+    ldmlFilename = ldsFilename = ssfFilename = None
+    ldmlContent = dblObj.file_contents_with_ext('ldml')
+    if ldmlContent is not None:
+        ldmlFilename = fullFilename.replace('.zip', '.ldml')
+        outf = open(ldmlFilename, 'wb')
+        outf.write(ldmlContent)
+        outf.close()
+    ldsContent = dblObj.file_contents_with_ext('lds')
+    if ldsContent is not None:
+        ldsFilename = fullFilename.replace('.zip','.lds')
+        outf = open(ldsFilename, 'wb')
+        if ord(ldsContent[0]) == 239 and ord(ldsContent[1]) == 187 and ord(ldsContent[2]) == 191:  # byte order mark
+            ldsContent = ldsContent[3:]
+        outf.write(ldsContent)
+        outf.close()
+    ssfContent = dblObj.file_contents_with_ext('ssf')
+    if ssfContent is not None:
+        ssfFilename = fullFilename.replace('.zip', '.ssf')
+        outf = open(ssfFilename, 'wb')
+        outf.write(ssfContent)
+        outf.close()
+
+    if ldmlFilename is not None and os.path.exists(ldmlFilename):
+        ldml = Ldml(ldmlFilename, ducetDict)
+
+        # Initialize the DBO analyzer with the existing exemplars.
+        #dblObj.exemplars.main = ''
+        #dblObj.exemplars.auxiliary = ''
+        #dblObj.exemplars.index = ''
+        #dblObj.exemplars.punctuation = ''
+        chElems = ldml.root.findall('characters/exemplarCharacters')
+        for chEl in chElems:
+            exemType = chEl.get('type')
+            if exemType is None:
+                dblObj.exemplars.main = chEl.text
+            elif exemType == 'auxiliary':
+                dblObj.exemplars.auxiliary = chEl.text
+            elif exemType == "index":
+                dblObj.exemplars.index = chEl.text
+            elif exemType == "punctuation":
+                dblObj.exemplars.punctuation = chEl.text
+
+        # chElemOrig = ldml.ensure_path('characters/exemplarCharacters')
+        # mainChElemOrig = None
+        # auxChElemOrig = ldml.find('characters/exemplarCharacters[@type="auxiliary"]')
+        # indexChElemOrig = ldml.find('characters/exemplarCharacters[@type="index"]')
+        # punctChElemOrig = ldml.find('characters/exemplarCharacters[@type="punctuation"]')
+
+#    else:
+#        ldml = Ldml(None, ducetDict)
+#        dblObj.exemplars.main = ''
+#        dblObj.exemplars.auxiliary = ''
+#        dblObj.exemplars.index = ''
+#        dblObj.exemplars.punctuation = ''
+
+    try:
+        dblObj.process_project()
+        dblObj.close_project()
+        dblObj.analyze_projects()
+    except Exception as err:
+        print "ERROR processing exemplars: " + str(err)
+        print type(err)
+        print err.args
+        dblObj.close_project()
+
+    print dblObj.exemplars.main
+    print dblObj.exemplars.auxiliary
+    print dblObj.exemplars.index
+    print dblObj.exemplars.punctuation
+    print dblObj.exemplars.script
+
+    mainCharElem = ldml.ensure_path('characters/exemplarCharacters')[0]
+    mainCharElem.text = dblObj.exemplars.main
+    auxCharElem = ldml.ensure_path('characters/exemplarCharacters[@type="auxiliary"]')[0]
+    auxCharElem.text = dblObj.exemplars.auxiliary
+    indexCharElem = ldml.ensure_path('characters/exemplarCharacters[@type="index"]')[0]
+    indexCharElem.text = dblObj.exemplars.index
+    punctCharElem = ldml.ensure_path('characters/exemplarCharacters[@type="punctuation"]')[0]
+    punctCharElem.text = dblObj.exemplars.punctuation
+
+    scriptCode = dblObj.exemplars.script
+
+    scriptElem = ldml.ensure_path('identity/script')[0]
+    scriptElem.text = scriptCode
+
+    if ssfFilename is not None and os.path.isfile(ssfFilename):
+        try:
+            processSsf(ldml, ssfFilename)
+        except Exception as err:
+            print "ERROR processing .ssf file: " + str(err)
+            print type(err)
+            print err.args
+    if ldsFilename is not None and  os.path.isfile(ldsFilename):
+        try:
+            processLds(ldml, ldsFilename, ducetDict)
+        except Exception as err:
+            print "ERROR processing .lds file: " + str(err)
+            print type(err)
+            print err.args
+
+    ldmlOutputFilename = outputPath + langCode + "_" + scriptCode + ".xml"
+    ldmlOutFile = codecs.open(ldmlOutputFilename, 'w', encoding="utf-8")
+    ldml.serialize_xml(ldmlOutFile.write)
+
+# end of processOneProject
+
+
+def processProjects(mainPath, inputPath, outputPath, filterLangCode = ''):
     import sys
     if sys.maxunicode == 0x10FFFF:
         print 'Python built with UCS4 (wide unicode) support'
     else:
         print 'Python built with UCS2 (narrow unicode) support'
 
-    # testLangs = [('aau','Latn'), ('aca','Latn')]
-    testLangs = [('zzz', 'Latn')]
-
     ducetDict = ducet.readDucet()
 
-    max = 3
+    max = 10
     count = 0
-    for (langCode, scriptCode) in testLangs:
-        ldmlFilename = inputPath + langCode + '/' + langCode + "_" + scriptCode + ".xml"
-        if os.path.exists(ldmlFilename):
-            ldml = Ldml(ldmlFilename, ducetDict)
-        else:
-            ldml = Ldml(None, ducetDict)
+    for filename in os.listdir(inputPath):
+        ttt = filename[-4:]
+        if filename[-4:] == '.zip':   # and os.path.isfile(filename)
+            langCode = filename[0:3]
+            if langCode[2:3] == "_":
+                langCode = filename[0:2]
 
-        #ssfFilename = inputPath + langCode + '/' + langCode + ".ssf"
-        #ldsFilename = inputPath + langCode + '/' + langCode + ".lds"
-        ssfFilename = entryInfo['ssf'] if entryInfo['ssf'] else None
-        ldsFilename = entryInfo['lds'] if entryInfo['lds'] else None
-        if os.path.isfile(ssfFilename):
-            processSsf(ldml, ssfFilename)
-            if os.path.isfile(ldsFilename):
-                processLds(ldml, ldsFilename, ducetDict)
-            ldmlOutputFilename = inputPath + langCode + '/' + langCode + "_" + scriptCode + "_out.xml"
-            ldmlOutFile = codecs.open(ldmlOutputFilename, 'w', encoding="utf-8")
-            ldml.serialize_xml(ldmlOutFile.write)
+            #if langCode < "kgk":   # TEMPORARY
+            #    continue
 
-            count = count + 1
-        else :
-            print "missing SSF file: " + ssfFilename
+            if filterLangCode == '' or langCode == filterLangCode:
+                try:
+                    print ""
+                    print "-----------"
+                    print "Processing: " + filename
+                    processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, langCode)
+                except Exception as err:
+                    print "ERROR: " + str(err)
+                    print type(err)
+                    print err.args
 
-        if count >= max:
-            break
+                count = count + 1
 
-    # end for...testLangs
+            #if count > max:
+            #    break
 
 # end of processProjects
 
 
 def downloadAndProcess():
     mainPath = "C:/WS_Tech/SSF2LDML/"
-    inputPath = mainPath + "testdata/"
-    ok = downloadFromDbl(mainPath, inputPath)
-    #if ok:
-    #    processProjects(mainPath, inputPath)
+    inputPath = downloadPath
+    outputPath = "./temp_output/"
+    ok = True # debugging
+    #ok = downloadFromDbl(mainPath, inputPath)
+    if ok:
+        langCode = ''
+        #####langCode = 'arz'  # debugging
+        processProjects(mainPath, inputPath, outputPath, langCode)
 
 # end of downloadAndProcess
 
@@ -781,7 +894,7 @@ if __name__ == '__main__':
         downloadAndProcess()
 
     else:
-        # Just process one set of files that are already present.
+        # Just process one set of files that is already present.
         ldmlFile = args.ldml
         ssfFile = args.ssf
         ldsFile = args.lds
