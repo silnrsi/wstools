@@ -24,7 +24,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
-import os
+import os, os.path
 import sys
 import codecs
 from argparse import ArgumentParser
@@ -70,19 +70,20 @@ def main():
     # Find exemplars in the data.
     ldml_filename = ''
     for project in args.project:
-        ldml_filename = project
-        if project.endswith('.zip'):
+        ldml_filename = os.path.normcase(project)
+        src_type = os.path.splitext(ldml_filename)[1].lower()
+        if src_type == '.zip':
             dbl.open_project(project)
             dbl.process_project()
             dbl.close_project()
         else:
             with codecs.open(project, 'r', encoding='utf_8_sig') as source:
-                if project.endswith('.SFM'):
+                if src_type.endswith('sfm'):
                     doc = sfm.sfilter(text_for_exemplars, usfm.parser(source))
-                    for txt in _flatten(doc):
-                        with codecs.open(project + '.text', 'w', encoding='utf-8') as textfile:
-                            textfile.write(txt)
-                            # dbl.exemplars.process(txt)
+                    txt = ''.join(_flatten(doc))
+                    with codecs.open(project + '.text', 'w', encoding='utf-8') as textfile:
+                        textfile.write(txt)
+                        dbl.exemplars.process(txt)
                 else:
                     for line in source:
                         dbl.exemplars.process(line)
