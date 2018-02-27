@@ -28,6 +28,7 @@ import os
 import sys
 import zipfile
 import xml.etree.ElementTree as ET
+from shutil import copyfile
 
 try:
     from sldr.ldml_exemplars import Exemplars
@@ -56,7 +57,7 @@ class DBL(object):
 
         # Read stylesheet.
         for filename in self.project.namelist():
-            if filename == 'styles.xml':
+            if filename == 'styles.xml' or filename[-11:] == '/styles.xml':
                 style = self.project.open(filename, 'r')
                 self._read_stylesheet(style)
 
@@ -91,6 +92,18 @@ class DBL(object):
                 contents = self.project.open(filename, 'r')
                 return contents
         return None
+
+    def extract_file_with_ext(self, ext, newname=None):
+        """Return the contents of the file with the given extension, if any."""
+        for filename in self.project.namelist():
+            if filename.endswith('.' + ext):
+                self.project.extract(filename)
+                if newname is not None:
+                    if os.path.exists(newname):
+                        os.remove(newname)
+                    copyfile(filename, newname)
+                    os.remove(filename)
+                return
 
     @staticmethod
     def _get_text(element):
