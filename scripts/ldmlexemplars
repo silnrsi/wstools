@@ -74,6 +74,7 @@ def main():
         src_type = os.path.splitext(ldml_filename)[1].lower()
         if src_type == '.zip':
             dbl.open_project(project)
+            # dbl.query_project()
             dbl.process_project()
             dbl.close_project()
         else:

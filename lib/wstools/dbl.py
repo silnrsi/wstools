@@ -25,6 +25,7 @@
 # SUCH DAMAGE.
 
 import os
+import os.path
 import sys
 import zipfile
 import xml.etree.ElementTree as ET
@@ -52,14 +53,34 @@ class DBL(object):
         """Open a DBL project zip file."""
         self.project = zipfile.ZipFile(zipfilename, 'r')
 
+    def query_project(self):
+        """Query a DBL project for ad-hoc information.
+
+        The information will be used to help write code,
+        and not be used in production.
+        """
+
+        # Find stylesheets.
+        found = False
+        for filename in self.project.namelist():
+            if os.path.basename(filename) == 'styles.xml':
+                found = True
+                print filename
+        if not found:
+            print "not found!"
+
     def process_project(self):
         """Process a DBL project."""
 
         # Read stylesheet.
+        found_stylesheet = False
         for filename in self.project.namelist():
-            if filename == 'styles.xml' or filename[-11:] == '/styles.xml':
+            if os.path.basename(filename) == 'styles.xml':
+                found_stylesheet = True
                 style = self.project.open(filename, 'r')
                 self._read_stylesheet(style)
+        if not found_stylesheet:
+            raise IOError('stylesheet not found')
 
         # Process text data.
         for filename in self.project.namelist():
