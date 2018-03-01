@@ -27,6 +27,7 @@
 import os
 import os.path
 import sys
+# import codecs
 import zipfile
 import xml.etree.ElementTree as ET
 from shutil import copyfile
@@ -52,6 +53,7 @@ class DBL(object):
     def open_project(self, zipfilename):
         """Open a DBL project zip file."""
         self.project = zipfile.ZipFile(zipfilename, 'r')
+        # self.corpus = codecs.open(zipfilename + '.main.txt', 'w', encoding='utf-8')
 
     def query_project(self):
         """Query a DBL project for ad-hoc information.
@@ -88,6 +90,7 @@ class DBL(object):
                 usx = self.project.open(filename, 'r')
                 for text in self._process_usx_file(usx):
                     self.exemplars.process(text)
+                    # self.corpus.write(text + '\n')
 
     def _read_stylesheet(self, style):
         """Read stylesheet and record which markers are publishable."""
@@ -126,15 +129,26 @@ class DBL(object):
                     os.remove(filename)
                 return
 
-    @staticmethod
-    def _get_text(element):
+    def _get_text(self, element):
         """Extract all text from an ET Element."""
-        for text in element.itertext():
+        # for text in element.itertext():
+        for text in self.iter_main_text(element):
             yield text.strip()
+
+    def iter_main_text(self, element):
+        """Extract all text from an ET Element."""
+        if element.text:
+            yield element.text
+        for e in element:
+            for se in self.iter_main_text(e):
+                yield se
+            if e.tail:
+                yield e.tail
 
     def close_project(self):
         """Close a DBL project."""
         self.project.close()
+        # self.corpus.close()
 
     def analyze_projects(self):
         """Analyze DBL project(s)."""
