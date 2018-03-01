@@ -136,7 +136,9 @@ class DBL(object):
             yield text.strip()
 
     def iter_main_text(self, element):
-        """Extract all text from an ET Element."""
+        """Extract all text (except notes) from an ET Element."""
+        if element.tag == 'note':
+            return
         if element.text:
             yield element.text
         for e in element:
