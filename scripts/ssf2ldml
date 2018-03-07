@@ -716,9 +716,9 @@ def downloadFromDbl(mainPath, inputPath, langCode = ''):
 def processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, langCode):
     fullFilename = inputPath + filename
     dblObj = DBL()
-
     dblObj.open_project(fullFilename)
 
+    """
     ldmlFilename = ldsFilename = ssfFilename = None
     ldmlContent = dblObj.file_contents_with_ext('ldml')
     if ldmlContent is not None:
@@ -740,9 +740,28 @@ def processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, lang
         outf = open(ssfFilename, 'wb')
         outf.write(ssfContent)
         outf.close()
+    """
+
+    ldmlFilename = fullFilename.replace('.zip', '.ldml')
+    dblObj.extract_file_with_ext('ldml', ldmlFilename)
+    ldsFilename = fullFilename.replace('.zip', '.lds')
+    dblObj.extract_file_with_ext('lds', ldsFilename)
+    ssfFilename = fullFilename.replace('.zip', '.ssf')
+    dblObj.extract_file_with_ext('ssf', ssfFilename)
+
+    mainChTextOrig = None
+    auxChTextOrig = None
+    indexChTextOrig = None
+    punctChTextOrig = None
 
     if ldmlFilename is not None and os.path.exists(ldmlFilename):
         ldml = Ldml(ldmlFilename, ducetDict)
+        ldml.use_draft = 'generated'  # use @draft='generated' for newly created data
+
+        mainChTextOrig = None
+        auxChTextOrig = ldml.find('characters/exemplarCharacters[@type="auxiliary"]')
+        indexChTextOrig = ldml.find('characters/exemplarCharacters[@type="index"]')
+        punctChTextOrig = ldml.find('characters/exemplarCharacters[@type="punctuation"]')
 
         # Initialize the DBO analyzer with the existing exemplars.
         #dblObj.exemplars.main = ''
@@ -754,12 +773,16 @@ def processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, lang
             exemType = chEl.get('type')
             if exemType is None:
                 dblObj.exemplars.main = chEl.text
+                mainChTextOrig = chEl.text
             elif exemType == 'auxiliary':
                 dblObj.exemplars.auxiliary = chEl.text
+                auxChTextOrig = chEl.text
             elif exemType == "index":
                 dblObj.exemplars.index = chEl.text
+                indexChTextOrig = chEl.text
             elif exemType == "punctuation":
                 dblObj.exemplars.punctuation = chEl.text
+                punctChTextOrig = chEl.text
 
         # chElemOrig = ldml.ensure_path('characters/exemplarCharacters')
         # mainChElemOrig = None
@@ -767,8 +790,8 @@ def processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, lang
         # indexChElemOrig = ldml.find('characters/exemplarCharacters[@type="index"]')
         # punctChElemOrig = ldml.find('characters/exemplarCharacters[@type="punctuation"]')
 
-#    else:
-#        ldml = Ldml(None, ducetDict)
+    else:
+        ldml = Ldml(None, ducetDict)
 #        dblObj.exemplars.main = ''
 #        dblObj.exemplars.auxiliary = ''
 #        dblObj.exemplars.index = ''
@@ -790,14 +813,27 @@ def processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, lang
     print dblObj.exemplars.punctuation
     print dblObj.exemplars.script
 
-    mainCharElem = ldml.ensure_path('characters/exemplarCharacters')[0]
-    mainCharElem.text = dblObj.exemplars.main
-    auxCharElem = ldml.ensure_path('characters/exemplarCharacters[@type="auxiliary"]')[0]
-    auxCharElem.text = dblObj.exemplars.auxiliary
-    indexCharElem = ldml.ensure_path('characters/exemplarCharacters[@type="index"]')[0]
-    indexCharElem.text = dblObj.exemplars.index
-    punctCharElem = ldml.ensure_path('characters/exemplarCharacters[@type="punctuation"]')[0]
-    punctCharElem.text = dblObj.exemplars.punctuation
+    for (ldmlType, oldValue, newValue) in\
+                    (('', mainChTextOrig, dblObj.exemplars.main),
+                     ('auxiliary', auxChTextOrig, dblObj.exemplars.auxiliary),
+                     ('index', indexChTextOrig, dblObj.exemplars.index),
+                     ('punctuation', punctChTextOrig, dblObj.exemplars.punctuation)):
+
+        xpath = 'characters/exemplarCharacters[@type="' + ldmlType + '"]'
+        if oldValue is None or oldValue == "":
+            # no previous value; mark new value generated
+            chElem = ldml.ensure_path(xpath, draft="generated")[0]
+        elif newValue != oldValue:
+            # mismatch; old value is suspect, new value is draft and alt=proposed
+            chElemSuspect = ldml.ensure_path(xpath)[0]
+            chElemSuspect.text = oldValue
+            ldml.change_draft(chElemSuspect, "suspect")
+            chElem = ldml.ensure_path(xpath, draft="generated", matchdraft="draft")[0]
+        else:
+            # values match; no change
+            chElem = ldml.ensure_path(xpath)[0]
+        chElem.text = newValue
+
 
     scriptCode = dblObj.exemplars.script
 
@@ -838,13 +874,12 @@ def processProjects(mainPath, inputPath, outputPath, filterLangCode = ''):
     max = 10
     count = 0
     for filename in os.listdir(inputPath):
-        ttt = filename[-4:]
-        if filename[-4:] == '.zip':   # and os.path.isfile(filename)
+        if filename.endswith('.zip'):   # and os.path.isfile(filename)
             langCode = filename[0:3]
             if langCode[2:3] == "_":
                 langCode = filename[0:2]
 
-            #if langCode < "kgk":   # TEMPORARY
+            #if langCode != "kgk":   # TEMPORARY
             #    continue
 
             if filterLangCode == '' or langCode == filterLangCode:
@@ -870,6 +905,7 @@ def downloadAndProcess():
     mainPath = "C:/WS_Tech/SSF2LDML/"
     inputPath = downloadPath
     outputPath = "./temp_output/"
+
     ok = True # debugging
     #ok = downloadFromDbl(mainPath, inputPath)
     if ok:
