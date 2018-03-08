@@ -93,13 +93,14 @@ def main():
     # Display the exemplars.
     with codecs.open(ldml_filename + '.ldml', 'w', encoding='utf-8') as ldml_file:
         ldml_file.write(' '.join(args.project) + '\n')
-        ldml_file.write(dbl.exemplars.main + '\n')
-        ldml_file.write(dbl.exemplars.auxiliary + '\n')
-        ldml_file.write(dbl.exemplars.index + '\n')
-        ldml_file.write(dbl.exemplars.punctuation + '\n')
-        ldml_file.write(dbl.exemplars.digits + '\n')
-        ldml_file.write(dbl.exemplars.graphemes + '\n')
-        ldml_file.write(dbl.exemplars.script + '\n')
+        ldml_file.write(u'main        {}\n'.format(dbl.exemplars.main))
+        ldml_file.write(u'auxiliary   {}\n'.format(dbl.exemplars.auxiliary))
+        ldml_file.write(u'index       {}\n'.format(dbl.exemplars.index))
+        ldml_file.write(u'punctuation {}\n'.format(dbl.exemplars.punctuation))
+        ldml_file.write(u'digits      {}\n'.format(dbl.exemplars.digits))
+        ldml_file.write(u'graphemes   {}\n'.format(dbl.exemplars.graphemes))
+        ldml_file.write(u'frequency   {}\n'.format(dbl.exemplars.frequency))
+        ldml_file.write(u'script      {}\n'.format(dbl.exemplars.script))
 
 
 def text_for_exemplars(e, props=set(("publishable", "vernacular"))):
