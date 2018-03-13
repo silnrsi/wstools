@@ -764,6 +764,7 @@ def processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, lang
         punctChTextOrig = ldml.find('characters/exemplarCharacters[@type="punctuation"]')
 
         # Initialize the DBO analyzer with the existing exemplars.
+        # We've decided not to do this due to the poor quality of the data.
         #dblObj.exemplars.main = ''
         #dblObj.exemplars.auxiliary = ''
         #dblObj.exemplars.index = ''
@@ -862,7 +863,7 @@ def processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, lang
 # end of processOneProject
 
 
-def processProjects(mainPath, inputPath, outputPath, filterLangCode = ''):
+def processProjects(mainPath, inputPath, outputPath, filterLangCode = '', filterZipFile = ''):
     import sys
     if sys.maxunicode == 0x10FFFF:
         print 'Python built with UCS4 (wide unicode) support'
@@ -874,44 +875,53 @@ def processProjects(mainPath, inputPath, outputPath, filterLangCode = ''):
     max = 10
     count = 0
     for filename in os.listdir(inputPath):
-        if filename.endswith('.zip'):   # and os.path.isfile(filename)
-            langCode = filename[0:3]
-            if langCode[2:3] == "_":
-                langCode = filename[0:2]
+        if filterZipFile == None or filterZipFile == '' or filterZipFile == filename:
+            if filename.endswith('.zip'):   # and os.path.isfile(filename)
+                langCode = filename[0:3]
+                if langCode[2:3] == "_":
+                    langCode = filename[0:2]
 
-            #if langCode != "kgk":   # TEMPORARY
-            #    continue
+                #if langCode != "kgk":   # TEMPORARY
+                #    continue
 
-            if filterLangCode == '' or langCode == filterLangCode:
-                try:
-                    print ""
-                    print "-----------"
-                    print "Processing: " + filename
-                    processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, langCode)
-                except Exception as err:
-                    print "ERROR: " + str(err)
-                    print type(err)
-                    print err.args
+                if filterLangCode == '' or langCode == filterLangCode:
+                    try:
+                        print ""
+                        print "-----------"
+                        print "Processing: " + filename
+                        processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, langCode)
+                    except Exception as err:
+                        print "ERROR: " + str(err)
+                        print type(err)
+                        print err.args
 
-                count = count + 1
+                    count = count + 1
 
-            #if count > max:
-            #    break
+                if filterZipFile is not None and filterZipFile != '':
+                    break  # we've handled the one file specified
+
+                #if count > max:
+                #    break
+            # end if filename ends with zip
+        # end if filename == filterZipFile
+    # end for files
 
 # end of processProjects
 
 
-def downloadAndProcess():
+def downloadAndProcess(updateDblSource, zipFile):
     mainPath = "C:/WS_Tech/SSF2LDML/"
     inputPath = downloadPath
     outputPath = "./temp_output/"
 
-    ok = True # debugging
-    #ok = downloadFromDbl(mainPath, inputPath)
+    if updateDblSource:
+        ok = downloadFromDbl(mainPath, inputPath)
+    else:
+        ok = True
     if ok:
         langCode = ''
         #####langCode = 'arz'  # debugging
-        processProjects(mainPath, inputPath, outputPath, langCode)
+        processProjects(mainPath, inputPath, outputPath, langCode, zipFile)
 
 # end of downloadAndProcess
 
@@ -919,15 +929,17 @@ def downloadAndProcess():
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-D','--dbl', default='true')
+    parser.add_argument('-D','--dbl', default='true')  # values are 'false', 'true', 'update'
+    parser.add_argument('-z','--zipfile')
     parser.add_argument('-l','--ldml',default="C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.xml",help='input LDML base file')
     parser.add_argument('-s','--ssf',default="C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.ssf",help='input SSF file')
     parser.add_argument('-d','--lds',default="C:/WS_Tech/SSF2LDML/testdata/zzz/zzz.lds",help='input LDS file')
     parser.add_argument('-o','--outfile',default="C:/WS_Tech/SSF2LDML/testdata/zzz/zzz_Latn_out.xml",help='output LDML file')
+
     args = parser.parse_args()
 
-    if args.dbl == 'true':
-        downloadAndProcess()
+    if args.dbl == 'true' or args.dbl == 'update':
+        downloadAndProcess((args.dbl == 'update'), args.zipfile)
 
     else:
         # Just process one set of files that is already present.
