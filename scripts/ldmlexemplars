@@ -58,7 +58,7 @@ def main():
 
     # User settable configuration.
     dbl.exemplars.many_bases = 5
-    dbl.exemplars.frequent = 10
+    dbl.exemplars.frequent = 0.1
 
     # From existing LDML files.
     dbl.exemplars.main = '[]'
