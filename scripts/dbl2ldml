@@ -33,7 +33,6 @@ import json
 from ConfigParser import RawConfigParser
 
 libPath = "../../../sldr/python/lib/sldr/"
-downloadPath = "./temp_download/"
 
 try:
     from ldml import Ldml
@@ -164,7 +163,7 @@ class DBLReader(object):
     # end of getEntries
 
 
-    def downloadOneEntry(self, entryId, langCode, accessType):
+    def downloadOneEntry(self, entryId, langCode, accessType, downloadPath):
 
         # Get the metadata that includes the license key for reading.
         response = requests.get('https://thedigitalbiblelibrary.org/api/entries/' + entryId,
@@ -709,7 +708,7 @@ def downloadFromDbl(mainPath, inputPath, langCode = ''):
             (entryLangCode, entryAccessType) = entryInfo
             if entryLangCode != 'eng' and entryLangCode != 'en':
                 print "Downloading: " + entryId + " - " + entryLangCode
-                entryInfo = dblreader.downloadOneEntry(entryId, entryLangCode, entryAccessType)
+                entryInfo = dblreader.downloadOneEntry(entryId, entryLangCode, entryAccessType, inputPath)
         return True
 
 
@@ -909,8 +908,7 @@ def processProjects(mainPath, inputPath, outputPath, filterLangCode = '', filter
 # end of processProjects
 
 
-def downloadAndProcess(updateDblSource, zipFile, mainPath):
-    inputPath = downloadPath
+def downloadAndProcess(updateDblSource, zipFile, mainPath, inputPath):
 
     if updateDblSource:
         ok = downloadFromDbl(mainPath, inputPath)
@@ -935,11 +933,12 @@ if __name__ == '__main__':
     parser.add_argument('-o','--outfile',default="C:/WS_Tech/DBL2LDML/testdata/zzz/zzz_Latn_out.xml",help='output LDML file')
     parser.add_argument('-O','--outpath',default="./temp_output",help="Directory to store generated ldml files in if not -l")
     parser.add_argument('-P','--dblpath',default="C:/WS_Tech/DBL2LDML",help="Path to local zips of DBL")
+    parser.add_argument('-T','--tempdownload',default="./temp_download",help="Where to download a DBL zip file to")
 
     args = parser.parse_args()
 
     if args.dbl == 'true' or args.dbl == 'update':
-        downloadAndProcess((args.dbl == 'update'), args.zipfile, args.dblpath, args.outpath)
+        downloadAndProcess((args.dbl == 'update'), args.zipfile, args.dblpath, args.outpath, args.tempdownload)
 
     else:
         # Just process one set of files that is already present.
