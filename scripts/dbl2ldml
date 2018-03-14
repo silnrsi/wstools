@@ -221,7 +221,7 @@ class DBLReader(object):
                         #     if response.status_code == 200:
                         #         downloadFileName = langCode + "_" + entryId + ext
                         #         #self._saveDownloadedFile(downloadPath, downloadFileName, response.content)
-                        #         result[key] = downloadPath + downloadFileName
+                        #         result[key] = downloadPath + "/" + downloadFileName
                         #         print langCode + " - DOWNLOADED " + downloadUrl
                             ###else:
                             ### print langCode + " - can't download file " + downloadUrl + ": " + str(response.status_code)
@@ -230,13 +230,13 @@ class DBLReader(object):
 
                     if downloadZip:
                         response = requests.get(
-                            'https://thedigitalbiblelibrary.org/api/entries/' + entryId + "/revisions/latest/licenses/"
+                            'https://thedigitalbiblelibrary.org/ap i/entries/' + entryId + "/revisions/latest/licenses/"
                                         + licenseId + ".zip",
                             auth=self.auth, headers=self._jsonHeaders())
                         if response.status_code == 200:
                             downloadFileName = langCode + "_" + entryId + ".zip"
                             self._saveDownloadedFile(downloadPath, downloadFileName, response.content)
-                            result['usx'] = downloadPath + downloadFileName
+                            result['usx'] = downloadPath + "/" + downloadFileName
                             print langCode + " - DOWNLOADED " + downloadFileName
                         else:
                             print langCode + " - can't download zip file" + ": " + str(response.status_code)
@@ -266,7 +266,7 @@ class DBLReader(object):
 
     def _saveDownloadedFile(self, dirPath, filename, contents):
         self._ensureDir(dirPath)
-        fullname = dirPath + filename
+        fullname = dirPath + "/" + filename
         outf = open(fullname, 'wb')
         outf.write(contents)
         outf.close()
@@ -713,7 +713,7 @@ def downloadFromDbl(mainPath, inputPath, langCode = ''):
 
 
 def processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, langCode):
-    fullFilename = inputPath + filename
+    fullFilename = inputPath + "/" + filename
     dblObj = DBL()
     dblObj.open_project(fullFilename)
 
@@ -855,7 +855,7 @@ def processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, lang
             print type(err)
             print err.args
 
-    ldmlOutputFilename = outputPath + langCode + "_" + scriptCode + ".xml"
+    ldmlOutputFilename = outputPath + "/" + langCode + "_" + scriptCode + ".xml"
     ldmlOutFile = codecs.open(ldmlOutputFilename, 'w', encoding="utf-8")
     ldml.serialize_xml(ldmlOutFile.write)
 
@@ -908,7 +908,7 @@ def processProjects(mainPath, inputPath, outputPath, filterLangCode = '', filter
 # end of processProjects
 
 
-def downloadAndProcess(updateDblSource, zipFile, mainPath, inputPath):
+def downloadAndProcess(updateDblSource, zipFile, mainPath, inputPath, outputPath):
 
     if updateDblSource:
         ok = downloadFromDbl(mainPath, inputPath)
@@ -938,7 +938,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.dbl == 'true' or args.dbl == 'update':
-        downloadAndProcess((args.dbl == 'update'), args.zipfile, args.dblpath, args.outpath, args.tempdownload)
+        downloadAndProcess((args.dbl == 'update'), args.zipfile, args.dblpath, args.tempdownload, args.outpath)
 
     else:
         # Just process one set of files that is already present.
