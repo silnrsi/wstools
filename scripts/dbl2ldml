@@ -909,10 +909,8 @@ def processProjects(mainPath, inputPath, outputPath, filterLangCode = '', filter
 # end of processProjects
 
 
-def downloadAndProcess(updateDblSource, zipFile):
-    mainPath = "C:/WS_Tech/DBL2LDML/"
+def downloadAndProcess(updateDblSource, zipFile, mainPath):
     inputPath = downloadPath
-    outputPath = "./temp_output/"
 
     if updateDblSource:
         ok = downloadFromDbl(mainPath, inputPath)
@@ -935,11 +933,13 @@ if __name__ == '__main__':
     parser.add_argument('-s','--ssf',default="C:/WS_Tech/DBL2LDML/testdata/zzz/zzz.ssf",help='input SSF file')
     parser.add_argument('-d','--lds',default="C:/WS_Tech/DBL2LDML/testdata/zzz/zzz.lds",help='input LDS file')
     parser.add_argument('-o','--outfile',default="C:/WS_Tech/DBL2LDML/testdata/zzz/zzz_Latn_out.xml",help='output LDML file')
+    parser.add_argument('-O','--outpath',default="./temp_output",help="Directory to store generated ldml files in if not -l")
+    parser.add_argument('-P','--dblpath',default="C:/WS_Tech/DBL2LDML",help="Path to local zips of DBL")
 
     args = parser.parse_args()
 
     if args.dbl == 'true' or args.dbl == 'update':
-        downloadAndProcess((args.dbl == 'update'), args.zipfile)
+        downloadAndProcess((args.dbl == 'update'), args.zipfile, args.dblpath, args.outpath)
 
     else:
         # Just process one set of files that is already present.
