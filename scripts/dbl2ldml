@@ -321,9 +321,12 @@ def processSsf(ldml, ssfFilename):
 
 def processLds(ldml, ldsFilename, ducetDict):
     if isinstance(ldsFilename, basestring):
-        ldsFile = open(ldsFilename, 'r')
+        ldsFile = codecs.open(ldsFilename, 'r')
+        # The RawConfigParser chokes on the BOM.
+        ldsFile = _removeBom(ldsFile, ldsFilename)
     else:
         ldsFile = ldsFilename
+
     ldsConfig = RawConfigParser()
     ldsConfig.read(ldsFilename)     # let exception rise up
     sortSpecString = calcSortLdsData(ldml, ldsConfig, ducetDict)
@@ -414,6 +417,26 @@ def _valueNotNo(value) :
         return False
     return True
 
+def _removeBom(openFile, filename):
+    bomMaybe = openFile.read(3)
+    if ord(bomMaybe[0]) == 239 and ord(bomMaybe[1]) == 187 and ord(bomMaybe[2]) == 191:
+        # Create a new file with no BOM.
+        filenameNoBom = filename + "_nobom"
+        fileNoBom = open(filenameNoBom, 'w')
+        while True:
+            c = openFile.read(1)
+            if not c: break
+            fileNoBom.write(c)
+        fileNoBom.close()
+        openFile.close()
+        os.remove(filename)
+        os.rename(filenameNoBom, filename)
+        # Open it like it was when the method started.
+        newOpenFile = open(filename, 'r')
+        return newOpenFile
+    else:
+        return openFile
+
 
 def calcSortLdsData(ldml, ldsConfig, ducetDict) :
     valueList = []
@@ -431,6 +454,8 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
                 keepGoing = False
             else :
                 value = ldsConfig.get('Characters', key)
+                if value == "'/'":
+                    value = "'"  # kludge; why does the get() function return the wrong value?
                 valueList.append(value)
                 
             cntr = cntr + 1
@@ -764,24 +789,26 @@ def processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, lang
 
         # Initialize the DBO analyzer with the existing exemplars.
         # We've decided not to do this due to the poor quality of the data.
+        # But do remember the values.
         #dblObj.exemplars.main = ''
         #dblObj.exemplars.auxiliary = ''
         #dblObj.exemplars.index = ''
         #dblObj.exemplars.punctuation = ''
+
         chElems = ldml.root.findall('characters/exemplarCharacters')
         for chEl in chElems:
             exemType = chEl.get('type')
             if exemType is None:
-                dblObj.exemplars.main = chEl.text
+                #dblObj.exemplars.main = chEl.text
                 mainChTextOrig = chEl.text
             elif exemType == 'auxiliary':
-                dblObj.exemplars.auxiliary = chEl.text
+                #dblObj.exemplars.auxiliary = chEl.text
                 auxChTextOrig = chEl.text
             elif exemType == "index":
-                dblObj.exemplars.index = chEl.text
+                #dblObj.exemplars.index = chEl.text
                 indexChTextOrig = chEl.text
             elif exemType == "punctuation":
-                dblObj.exemplars.punctuation = chEl.text
+                #dblObj.exemplars.punctuation = chEl.text
                 punctChTextOrig = chEl.text
 
         # chElemOrig = ldml.ensure_path('characters/exemplarCharacters')
