@@ -280,6 +280,8 @@ class DBLReader(object):
 
 
 def processSsf(ldml, ssfFilename):
+    if ssfFilename is None:
+        return
     if isinstance(ssfFilename, basestring):
         ssfFile = open(ssfFilename, 'rb')
     else:
@@ -335,7 +337,7 @@ def processLds(ldml, ldsFilename, ducetDict):
         return
 
     collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
-    crElem = ldml.addnode(collationElem[0], 'cr')
+    crElem = ldml.addnode(collationElem, 'cr')
     crElem.text = sortSpecString
     # CDATA handling done by ldml object, we hope
 
@@ -495,16 +497,19 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
 
                 for s in slashItems:
                     if currBase is not None:
-                        collObj[s] = CollElement(currBase, currLevel)
+                        try:
+                            collObj[s] = CollElement(currBase, currLevel)
+                        except KeyError:
+                            continue
                     currLevel = 3
                     currBase = s
                     alphabet.append(s)
                 currLevel = 2
     # end if
 
-    print collObj.asICU()
                         
     collObj.minimise(alphabet)
+    print collObj.asICU()
     return collObj.asICU()
 
 # end of calcSortLdsData
@@ -954,8 +959,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-D','--dbl', default='true')  # values are 'false', 'true', 'update'
     parser.add_argument('-z','--zipfile')
-    parser.add_argument('-l','--ldml',default="C:/WS_Tech/DBL2LDML/testdata/zzz/zzz.xml",help='input LDML base file')
-    parser.add_argument('-s','--ssf',default="C:/WS_Tech/DBL2LDML/testdata/zzz/zzz.ssf",help='input SSF file')
+    parser.add_argument('-l','--ldml',help='input LDML base file')
+    parser.add_argument('-s','--ssf',help='input SSF file')
     parser.add_argument('-d','--lds',default="C:/WS_Tech/DBL2LDML/testdata/zzz/zzz.lds",help='input LDS file')
     parser.add_argument('-o','--outfile',default="C:/WS_Tech/DBL2LDML/testdata/zzz/zzz_Latn_out.xml",help='output LDML file')
     parser.add_argument('-O','--outpath',default="./temp_output",help="Directory to store generated ldml files in if not -l")
