@@ -721,7 +721,7 @@ def _debugStr(item) :
 
 
 
-def downloadFromDbl(mainPath, inputPath, langCode = ''):
+def downloadFromDbl(mainPath, downloadPath, langCode = ''):
     dblreader = DBLReader()
 
     ###code = dblreader.testAccess()
@@ -738,12 +738,12 @@ def downloadFromDbl(mainPath, inputPath, langCode = ''):
             (entryLangCode, entryAccessType) = entryInfo
             if entryLangCode != 'eng' and entryLangCode != 'en':
                 print "Downloading: " + entryId + " - " + entryLangCode
-                entryInfo = dblreader.downloadOneEntry(entryId, entryLangCode, entryAccessType, inputPath)
+                entryInfo = dblreader.downloadOneEntry(entryId, entryLangCode, entryAccessType, downloadPath)
         return True
 
 
-def processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, langCode):
-    fullFilename = inputPath + "/" + filename
+def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
+    fullFilename = filename # should already include path
     dblObj = DBL()
     dblObj.open_project(fullFilename)
 
@@ -853,19 +853,27 @@ def processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, lang
 
         xpath = 'characters/exemplarCharacters[@type="' + ldmlType + '"]'
         if oldValue is None or oldValue == "":
-            # no previous value; mark new value generated
-            chElem = ldml.ensure_path(xpath, draft="generated")[0]
+            if newValue == "[]":
+                chElem = None  # ignore new empty value
+            else:
+                # no previous value; mark new value generated
+                chElem = ldml.ensure_path(xpath, draft="generated")[0]
         elif newValue != oldValue:
-            # mismatch; old value is suspect, new value is draft and alt=proposed
-            chElemSuspect = ldml.ensure_path(xpath)[0]
-            chElemSuspect.text = oldValue
-            ldml.change_draft(chElemSuspect, "suspect")
-            chElem = ldml.ensure_path(xpath, draft="generated", matchdraft="draft")[0]
+            if oldValue == "[]":
+                # Throw away old empty value
+                chElem = ldml.ensure_path(xpath, draft="generated")[0]
+                ldml.change_draft(chElem, "generated")
+            else:
+                # mismatch; old value is suspect, new value is draft and alt=proposed
+                chElemSuspect = ldml.ensure_path(xpath)[0]
+                chElemSuspect.text = oldValue
+                ldml.change_draft(chElemSuspect, "suspect")
+                chElem = ldml.ensure_path(xpath, draft="generated", matchdraft="draft")[0]
         else:
             # values match; no change
             chElem = ldml.ensure_path(xpath)[0]
-        chElem.text = newValue
-
+        if chElem is not None:
+            chElem.text = newValue
 
     scriptCode = dblObj.exemplars.script
 
@@ -894,7 +902,7 @@ def processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, lang
 # end of processOneProject
 
 
-def processProjects(mainPath, inputPath, outputPath, filterLangCode = '', filterZipFile = ''):
+def processProjects(dblPath, inputPath, outputPath, filterLangCode = '', filterZipFile = ''):
     import sys
     if sys.maxunicode == 0x10FFFF:
         print 'Python built with UCS4 (wide unicode) support'
@@ -905,51 +913,61 @@ def processProjects(mainPath, inputPath, outputPath, filterLangCode = '', filter
 
     max = 10
     count = 0
-    for filename in os.listdir(inputPath):
-        if filterZipFile == None or filterZipFile == '' or filterZipFile == filename:
-            if filename.endswith('.zip'):   # and os.path.isfile(filename)
-                langCode = filename[0:3]
-                if langCode[2:3] == "_":
-                    langCode = filename[0:2]
+    if filterZipFile == None or filterZipFile == '':
+        filelist = os.listdir(inputPath)
+        if inputPath[:-1] != '/':
+            inputPath = inputPath + '/'
+    else:
+        basename = os.path.basename(filterZipFile)
+        filterPath = filterZipFile.replace(basename, '')
+        filelist = [basename]
+        inputPath = inputPath + filterPath
 
-                #if langCode != "kgk":   # TEMPORARY
-                #    continue
+    for filename in filelist:
+        if filename.endswith('.zip'):   # and os.path.isfile(filename)
+            basename = os.path.basename(filename)
+            langCode = basename[0:3]
+            if langCode[2:3] == "_":
+                langCode = basename[0:2]
 
-                if filterLangCode == '' or langCode == filterLangCode:
-                    try:
-                        print ""
-                        print "-----------"
-                        print "Processing: " + filename
-                        processOneProject(mainPath, inputPath, outputPath, ducetDict, filename, langCode)
-                    except Exception as err:
-                        print "ERROR: " + str(err)
-                        print type(err)
-                        print err.args
+            #if langCode != "kgk":   # TEMPORARY
+            #    continue
 
-                    count = count + 1
+            if filterLangCode == '' or langCode == filterLangCode:
+                try:
+                    print ""
+                    print "-----------"
+                    print "Processing: " + filename
+                    filePlusPath = inputPath + filename
+                    processOneProject(dblPath, outputPath, ducetDict, filePlusPath, langCode)
+                except Exception as err:
+                    print "ERROR: " + str(err)
+                    print type(err)
+                    print err.args
 
-                if filterZipFile is not None and filterZipFile != '':
-                    break  # we've handled the one file specified
+                count = count + 1
 
-                #if count > max:
-                #    break
-            # end if filename ends with zip
-        # end if filename == filterZipFile
+            #if filterZipFile is not None and filterZipFile != '':
+            #    break  # we've handled the one file specified
+
+            #if count > max:
+            #    break
+        # end if filename ends with zip
     # end for files
 
 # end of processProjects
 
 
-def downloadAndProcess(updateDblSource, zipFile, mainPath, inputPath, outputPath):
+def downloadAndProcess(updateDblSource, zipFile, dblPath, inputPath, outputPath):
 
     if updateDblSource:
-        ok = downloadFromDbl(mainPath, inputPath)
+        ok = downloadFromDbl(dblPath, inputPath)
     else:
         ok = True
     if ok:
         langCode = ''
         #####langCode = 'arz'  # debugging
-        processProjects(mainPath, inputPath, outputPath, langCode, zipFile)
+        processProjects(dblPath, inputPath, outputPath, langCode, zipFile)
 
 # end of downloadAndProcess
 
@@ -965,7 +983,7 @@ if __name__ == '__main__':
     parser.add_argument('-o','--outfile',default="C:/WS_Tech/DBL2LDML/testdata/zzz/zzz_Latn_out.xml",help='output LDML file')
     parser.add_argument('-O','--outpath',default="./temp_output",help="Directory to store generated ldml files in if not -l")
     parser.add_argument('-P','--dblpath',default="C:/WS_Tech/DBL2LDML",help="Path to local zips of DBL")
-    parser.add_argument('-T','--tempdownload',default="./temp_download",help="Where to download a DBL zip file to")
+    parser.add_argument('-T','--tempdownload',default="./temp_download",help="Where to download a DBL zip file to, or where to find them")
 
     args = parser.parse_args()
 
