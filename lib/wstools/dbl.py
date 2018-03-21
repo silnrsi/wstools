@@ -129,6 +129,13 @@ class DBL(object):
                     os.remove(filename)
                 return
 
+    def extract_file(self, filename):
+        if filename in self.project.namelist():
+            self.project.extract(filename)
+            return True
+        else:
+            return False
+
     def _get_text(self, element):
         """Extract all text from an ET Element."""
         # for text in element.itertext():

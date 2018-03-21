@@ -7,6 +7,7 @@ import codecs
 import copy
 import os
 import unicodedata
+import xml.etree.cElementTree as et
 
 # For calling DBLAuthV1 class:
 # The requests module may need to be installed separately; it does not appear to be part of the standard Python.
@@ -32,17 +33,17 @@ import json
 
 from ConfigParser import RawConfigParser
 
-libPath = "../../../sldr/python/lib/sldr/"
+libPath = "../../../sldr/python/lib/"
 
 try:
-    from ldml import Ldml
-    from collation import Collation, CollElement
-    import ducet
+    from sldr.ldml import Ldml
 except ImportError:
     sys.path.append(os.path.abspath(os.path.dirname(__file__) + libPath))
-    from ldml import Ldml
-    from collation import Collation, CollElement
-    import ducet
+    from sldr.ldml import Ldml
+
+from sldr.collation import Collation, CollElement
+from sldr.langtags import LangTag
+import sldr.ducet as ducet
 
 
 ##import xml.etree.cElementTree as etree
@@ -439,6 +440,17 @@ def _removeBom(openFile, filename):
     else:
         return openFile
 
+def processMetadata(ldml, fname):
+    etree = et.parse(fname)
+    lang = etree.getroot().find('language')
+    ltagname = lang.find('ldml').text
+    ltag = LangTag(ltagname)
+    engname = lang.find('name').text
+    localname = lang.find('nameLocal').text
+    elocalename = ldml.ensure_path('localeDisplayName/languages/language[@type="{}"]'.format(ltag.lang))[0]
+    elocalename.text = localname
+    eengname = ldml.ensure_path('localeDisplayName/sil:special/sil:names/sil:name[@xml:lang="en"]')[0]
+    eengname.text = engname
 
 def calcSortLdsData(ldml, ldsConfig, ducetDict) :
     valueList = []
@@ -777,6 +789,7 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
     dblObj.extract_file_with_ext('lds', ldsFilename)
     ssfFilename = fullFilename.replace('.zip', '.ssf')
     dblObj.extract_file_with_ext('ssf', ssfFilename)
+    hasMetaDataFile = dblObj.extract_file('metadata.xml')
 
     mainChTextOrig = None
     auxChTextOrig = None
@@ -895,8 +908,12 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
             print type(err)
             print err.args
 
+    if hasMetaDataFile:
+        processMetadata(ldml, 'metadata.xml')
+
     ldmlOutputFilename = outputPath + "/" + langCode + "_" + scriptCode + ".xml"
     ldmlOutFile = codecs.open(ldmlOutputFilename, 'w', encoding="utf-8")
+    ldml.normalise()
     ldml.serialize_xml(ldmlOutFile.write)
 
 # end of processOneProject
