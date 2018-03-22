@@ -445,18 +445,18 @@ def processMetadata(ldml, fname):
     lang = etree.getroot().find('language')
     if lang is None:
         return
-    ltagname = lang.find('ldml')
-    if ltagname is None:
-        ltagname = ldml.find('identity/language/@type')
-    localname = lang.find('nameLocal')
-    if localname is not None and ltagname is not None:
-        ltag = LangTag(ltagname.text)
-        elocalename = ldml.ensure_path('localeDisplayNames/languages/language[@type="{}"]'.format(ltag.lang))[0]
-        elocalename.text = localname.text
-    engname = lang.find('name')
-    if engname is not None:
-        eengname = ldml.ensure_path('localeDisplayNames/special/sil:names/sil:name[@xml:lang="en"]')[0]
-        eengname.text = engname.text
+    ltagnameNode = lang.find('ldml')
+    if ltagnameNode is None:
+        ltagnameNode = ldml.find('identity/language/@type')
+    localnameNode = lang.find('nameLocal')
+    if localnameNode is not None and ltagnameNode is not None:
+        ltag = LangTag(ltagnameNode.text)
+        elocalenameNode = ldml.ensure_path('localeDisplayName/languages/language[@type="{}"]'.format(ltag.lang))[0]
+        elocalenameNode.text = localnameNode.text
+    engnameNode = lang.find('name')
+    if engnameNode is not None:
+        eengnameNode = ldml.ensure_path('localeDisplayName/sil:special/sil:names/sil:name[@xml:lang="en"]')[0]
+        eengnameNode.text = engnameNode.text
 
 def calcSortLdsData(ldml, ldsConfig, ducetDict) :
     valueList = []
@@ -906,6 +906,14 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
             print "ERROR processing .ssf file: " + str(err)
             print type(err)
             print err.args
+
+    # Any <cr> element in <collation> is suspect.
+    collationNode = ldml.find('collations/collation')
+    if collationNode is not None:
+        collCrNode = collationNode.find('cr')
+        if collCrNode is not None:
+            ldml.change_draft(collCrNode, "suspect")
+
     if ldsFilename is not None and  os.path.isfile(ldsFilename):
         try:
             processLds(ldml, ldsFilename, ducetDict)
@@ -915,7 +923,12 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
             print err.args
 
     if hasMetaDataFile:
-        processMetadata(ldml, 'metadata.xml')
+        try:
+            processMetadata(ldml, 'metadata.xml')
+        except Exception as err:
+            print "ERROR processing metadata.xml file: " + str(err)
+            print type(err)
+            print err.args
 
     ldmlOutputFilename = outputPath + "/" + langCode + "_" + scriptCode + ".xml"
     ldmlOutFile = codecs.open(ldmlOutputFilename, 'w', encoding="utf-8")
