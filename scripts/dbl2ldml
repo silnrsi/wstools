@@ -451,11 +451,11 @@ def processMetadata(ldml, fname):
     localname = lang.find('nameLocal')
     if localname is not None and ltagname is not None:
         ltag = LangTag(ltagname.text)
-        elocalename = ldml.ensure_path('localeDisplayName/languages/language[@type="{}"]'.format(ltag.lang))[0]
+        elocalename = ldml.ensure_path('localeDisplayNames/languages/language[@type="{}"]'.format(ltag.lang))[0]
         elocalename.text = localname.text
     engname = lang.find('name')
     if engname is not None:
-        eengname = ldml.ensure_path('localeDisplayName/special/sil:names/sil:name[@xml:lang="en"]')[0]
+        eengname = ldml.ensure_path('localeDisplayNames/special/sil:names/sil:name[@xml:lang="en"]')[0]
         eengname.text = engname.text
 
 def calcSortLdsData(ldml, ldsConfig, ducetDict) :
