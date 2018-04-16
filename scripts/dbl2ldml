@@ -908,6 +908,10 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
         node = ldml.find('characters/special/sil:exemplarCharacters[@type="' + attr + '"]')
         if node is not None and (node.text == '' or node.text == '[]'):
             specialNode.remove(node)
+    xxx = len(specialNode)
+    if len(specialNode) == 0:
+        charNode = ldml.find('characters')
+        charNode.remove(specialNode)
 
     scriptCode = dblObj.exemplars.script
 
