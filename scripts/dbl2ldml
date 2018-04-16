@@ -442,18 +442,18 @@ def _removeBom(openFile, filename):
 
 def processMetadata(ldml, fname):
     etree = et.parse(fname)
-    lang = etree.getroot().find('language')
-    if lang is None:
+    langNode = etree.getroot().find('language')
+    if langNode is None:
         return
-    ltagnameNode = lang.find('ldml')
+    ltagnameNode = langNode.find('ldml')
     if ltagnameNode is None:
         ltagnameNode = ldml.find('identity/language/@type')
-    localnameNode = lang.find('nameLocal')
+    localnameNode = langNode.find('nameLocal')
     if localnameNode is not None and ltagnameNode is not None:
         ltag = LangTag(ltagnameNode.text)
         elocalenameNode = ldml.ensure_path('localeDisplayName/languages/language[@type="{}"]'.format(ltag.lang))[0]
         elocalenameNode.text = localnameNode.text
-    engnameNode = lang.find('name')
+    engnameNode = langNode.find('name')
     if engnameNode is not None:
         eengnameNode = ldml.ensure_path('localeDisplayName/sil:special/sil:names/sil:name[@xml:lang="en"]')[0]
         eengnameNode.text = engnameNode.text
@@ -848,6 +848,8 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
 #        dblObj.exemplars.index = ''
 #        dblObj.exemplars.punctuation = ''
 
+    ldml.uid = "dbl"  # generates alt="proposed-dbl"
+
     try:
         dblObj.process_project()
         dblObj.close_project()
@@ -883,7 +885,7 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
                 chElem = ldml.ensure_path(xpath, draft="generated")[0]
                 ldml.change_draft(chElem, "generated")
             else:
-                # mismatch; old value is suspect, new value is draft and alt=proposed
+                # mismatch; old value is suspect, new value is draft and alt=proposed-dbl
                 chElemSuspect = ldml.ensure_path(xpath)[0]
                 chElemSuspect.text = oldValue
                 ldml.change_draft(chElemSuspect, "suspect")
@@ -893,6 +895,14 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
             chElem = ldml.ensure_path(xpath)[0]
         if chElem is not None:
             chElem.text = newValue
+
+    # Delete empty data from original LDML
+    likelyEmptyAttrs = ['crossrefs', 'diacritics', 'footnotes', 'verseSegments', 'wordBreaks', 'wordFormingPunctuation']
+    specialNode = ldml.find('characters/special')
+    for attr in likelyEmptyAttrs:
+        node = ldml.find('characters/special/sil:exemplarCharacters[@type="' + attr + '"]')
+        if node is not None and (node.text == '' or node.text == '[]'):
+            specialNode.remove(node)
 
     scriptCode = dblObj.exemplars.script
 
@@ -1002,7 +1012,7 @@ def downloadAndProcess(updateDblSource, zipFile, dblPath, inputPath, outputPath)
         ok = True
     if ok:
         langCode = ''
-        #####langCode = 'arz'  # debugging
+        ####langCode = 'bel'  # debugging
         processProjects(dblPath, inputPath, outputPath, langCode, zipFile)
 
 # end of downloadAndProcess
