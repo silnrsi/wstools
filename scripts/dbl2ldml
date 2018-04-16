@@ -908,7 +908,6 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
         node = ldml.find('characters/special/sil:exemplarCharacters[@type="' + attr + '"]')
         if node is not None and (node.text == '' or node.text == '[]'):
             specialNode.remove(node)
-    xxx = len(specialNode)
     if len(specialNode) == 0:
         charNode = ldml.find('characters')
         charNode.remove(specialNode)
@@ -949,6 +948,18 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
             print "ERROR processing metadata.xml file: " + str(err)
             print type(err)
             print err.args
+
+    # Generation time
+    dateNow = datetime.utcnow()
+    genTimeValue = datetime.strftime(dateNow, "%Y-%m-%d %H:%M:%S")
+    genTimeNode = ldml.ensure_path('identity/generation')[0]
+    genTimeNode.set('date', genTimeValue)
+
+    # Delete version
+    versionNode = ldml.find('identity/version')
+    if versionNode is not None:
+        idNode = ldml.find('identity')
+        idNode.remove(versionNode)
 
     ldmlOutputFilename = outputPath + "/" + langCode + "_" + scriptCode + ".xml"
     ldmlOutFile = codecs.open(ldmlOutputFilename, 'w', encoding="utf-8")
