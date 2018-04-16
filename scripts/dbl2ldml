@@ -533,21 +533,26 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
 # end of calcSortLdsData
 
 
+def cleanUpOldSortSpec(oldValue):
+    newValue = oldValue.replace('\/', '/')
+    return newValue
+
+
 # OBSOLETE
-def _minimizeSortSpec(sortSpec, ducetDict) :
+def _minimizeSortSpec(sortSpec, ducetDict):
     # First, look at each line individually and see which have information we need to retain.
     # Note that we don't try to minimize the lines themselves, just the set of lines.
     needLines = {}
-    for iline in range(len(sortSpec)) :
+    for iline in range(len(sortSpec)):
         thisLine = sortSpec[iline]
         needThisLine = False
         prevItems = None
         # Try to find something in this line that doesn't fit the DUCET; if so, we definitely need this line.
-        for iitem in range(len(thisLine)) :
+        for iitem in range(len(thisLine)):
             cExpected = _compareToken(thisLine[iitem])
-            if cExpected >= 0 :
+            if cExpected >= 0:
                 cVal = ducet.ducetCompare(ducetDict, _intToUnichr(thisLine[iitem-1]), _intToUnichr(thisLine[iitem+1]))
-                if cVal != cExpected :
+                if cVal != cExpected:
                     needThisLine = True
                     break # out of loop over items
         needLines[iline] = needThisLine
@@ -555,7 +560,7 @@ def _minimizeSortSpec(sortSpec, ducetDict) :
     ampIline = 0
     ampItem = (sortSpec[0])[1]  # most recent item before an &
 
-    for iline in range(len(sortSpec)-1) :
+    for iline in range(len(sortSpec)-1):
         thisLine = sortSpec[iline]
         nextLine = sortSpec[iline+1]
         debugThis = _debugStr(thisLine[1])
@@ -566,10 +571,10 @@ def _minimizeSortSpec(sortSpec, ducetDict) :
             firstItem = thisLine[1] if thisLine[0] == "&"  else ampItem
             # Compare start of this line (current &) and start of next:
             cValAmp = ducet.ducetCompare(ducetDict, _intToUnichr(firstItem), _intToUnichr(nextLine[1]))
-        else :
+        else:
             cValAmp = cVal
 
-        if cVal == 1 and cValAmp == 1 :
+        if cVal == 1 and cValAmp == 1:
             # Order and level match.
             ilineFirstOfGroup = iline
         elif cVal > 1 and cValAmp > 0:
@@ -578,13 +583,13 @@ def _minimizeSortSpec(sortSpec, ducetDict) :
             needLines[iline] = True
             needLines[iline+1] = True
             ilineFirstOfGroup = iline
-        elif cVal < 0 and cValAmp > 0 :
+        elif cVal < 0 and cValAmp > 0:
             # Initial items are in order, but this line not so much; merge them.
             needLines[iline] = True
             needLines[iline+1] = True
             nextLine[0] = "<"
             ilineFirstOfGroup = iline
-        else :
+        else:
             howFarThis = _howFarOff(sortSpec, _intToUnichr(thisLine[1]), iline, 1, ducetDict)
             howFarNext = _howFarOff(sortSpec, _intToUnichr(nextLine[1]), iline+1, -1, ducetDict)
             if howFarThis == 1 :
@@ -592,12 +597,12 @@ def _minimizeSortSpec(sortSpec, ducetDict) :
                 nextLine[0] = "<"
                 needLines[iline] = True
                 needLines[iline+1] = True
-                if iline < len(sortSpec) - 2 :
+                if iline < len(sortSpec) - 2:
                     nextNextLine = sortSpec[iline+2]
                     nextNextLine[0] = "<"
                     needLines[iline+2] = True
                 ilineFirstOfGroup = iline
-            elif howFarNext == -1 :
+            elif howFarNext == -1:
                 # This line is out of order.
                 if iline == 0 :
                     # Do something special for the first line.
@@ -605,7 +610,7 @@ def _minimizeSortSpec(sortSpec, ducetDict) :
                     # DON'T merge with the following line; it is not necessary and has the effect of creating a long chain.
                     needLines[iline] = True
                     ilineFirstOfGroup = iline
-                else :
+                else:
                     # We need: prev < this < next.
                     thisLine[0] = "<"
                     nextLine[0] = "<"
@@ -613,7 +618,7 @@ def _minimizeSortSpec(sortSpec, ducetDict) :
                     needLines[iline] = True
                     needLines[iline + 1] = True
                     ilineFirstOfGroup = iline - 1
-            else :
+            else:
                 # We don't know what we can assume; so we need: prev < this < next < nextnext.
                 nextLine[0] = "<"
                 needLines[iline] = True
@@ -622,23 +627,23 @@ def _minimizeSortSpec(sortSpec, ducetDict) :
                     thisLine[0] = "<"
                     needLines[iline-1] = True
                     ilineFirstOfGroup = iline - 1
-                else :
+                else:
                     ilineFirstOfGroup = iline
-                if iline < len(sortSpec) - 1 :
+                if iline < len(sortSpec) - 1:
                     nextNextLine = sortSpec[iline+2]
                     nextNextLine[0] = "<"
                     needLines[iline+2] = True
 
         # Remember the current last &.
         fogLine = sortSpec[ilineFirstOfGroup]
-        if fogLine[0] == "&" :
+        if fogLine[0] == "&":
             ampIline = ilineFirstOfGroup
             ampItem = fogLine[1]
 
     # Retain only the lines we need.
     minSpec = []
-    for iline in range(len(sortSpec)) :
-        if needLines[iline] :
+    for iline in range(len(sortSpec)):
+        if needLines[iline]:
             minSpec.append(sortSpec[iline])
 
     return minSpec
@@ -646,16 +651,16 @@ def _minimizeSortSpec(sortSpec, ducetDict) :
 # end of minimizeSortSpec
 
 # OBSOLETE
-def _howFarOff(sortSpec, uChar, iline, dir, ducetDict) :
-    if dir == 1 :
+def _howFarOff(sortSpec, uChar, iline, dir, ducetDict):
+    if dir == 1:
         rng = range(iline + 1, len(sortSpec))
-    else :
+    else:
         rng = range(iline - 1, -1, -1)
 
-    for iline2 in rng :
+    for iline2 in rng:
         if (sortSpec[iline2])[0] == "&" :
             cVal = ducet.ducetCompare(ducetDict, uChar, _intToUnichr((sortSpec[iline2])[1]))
-            if cVal >= (1 * dir) :
+            if cVal >= (1 * dir):
                 return iline2 - iline
 
     return iline2 - iline
@@ -669,15 +674,15 @@ def _compareToken(token):
     return -1  # not a token
 
 # OBSOLETE
-def _charToInt(charsStr) :
+def _charToInt(charsStr):
     # There's a codec that will do this
     result = []
     i = 0
     while i < len(charsStr):
-        if charsStr[i:i+2] == "\u" :
+        if charsStr[i:i+2] == "\u":
             result.append(int(charsStr[i+2:i+6], 16))
             i = i + 5
-        elif charsStr[i:i+2] == "\U" :
+        elif charsStr[i:i+2] == "\U":
             result.append(int(charsStr[i+2:i+10], 16))
             i = i + 9
         else : ### isinstance(charItem, list) :
@@ -688,21 +693,21 @@ def _charToInt(charsStr) :
     return result
 
 # OBSOLETE
-def _unicodeEntity(ordValue) :
-    if isinstance(ordValue, int) :
+def _unicodeEntity(ordValue):
+    if isinstance(ordValue, int):
         ordValue = [ordValue]
 
     result = ""
-    for x in ordValue :
+    for x in ordValue:
         # what about \, &, < and other escaped chars (e.g. < 33)
-        if (x) < 128 :
+        if (x) < 128:
             result += chr(x)
         # and \U support?
-        else :
+        else:
             uitem = unichr(x)
             hexStr = hex(ord(uitem))
             hexStr = hexStr.replace('0x', '')
-            while len(hexStr) < 4 :
+            while len(hexStr) < 4:
                 hexStr = '0' + hexStr
             hexStr = '\\u' + hexStr
             result += hexStr
@@ -710,28 +715,28 @@ def _unicodeEntity(ordValue) :
     return result
 
 # OBSOLETE
-def _intToUnichr(item) :
-    if isinstance(item, int) :
+def _intToUnichr(item):
+    if isinstance(item, int):
         return unichr(item)
 
     result = []
-    for i in range(len(item)) :
+    for i in range(len(item)):
         x = item[i]
-        if item[i] == ord('\\') and item[i+1] == ord('u') :
+        if item[i] == ord('\\') and item[i+1] == ord('u'):
             sval = "".join(item[i+2,i+6])
             result.append(unichr(int(sval, 16)))
             i = i + 5
-        elif item[i] == ord('\\') and item[i+1] == ord('U') :
+        elif item[i] == ord('\\') and item[i+1] == ord('U'):
             sval = "".join(item[i+2,i+10])
             result.append(unichr(int(sval, 16)))
             i = i + 9
-        else :
+        else:
             result.append(unichr(x))
     return result
 
 
-def _debugStr(item) :
-    if isinstance(item, int) :
+def _debugStr(item):
+    if isinstance(item, int):
         item = [item]
     result = "".join(map(unichr, item))
     result += " =" + " ".join(map(hex, item))
@@ -923,6 +928,7 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
         collCrNode = collationNode.find('cr')
         if collCrNode is not None:
             ldml.change_draft(collCrNode, "suspect")
+            collCrNode.text = cleanUpOldSortSpec(collCrNode.text)
 
     if ldsFilename is not None and  os.path.isfile(ldsFilename):
         try:
