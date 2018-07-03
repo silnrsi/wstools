@@ -47,6 +47,9 @@ class DBL(object):
 
     def __init__(self):
         self.exemplars = Exemplars()
+        # For DBL data, we have our doubts as to whether frequency is a good indicator of whether a character
+        # is main or auxiliary. So set the threshold to zero which will treat all characters found as main.
+        self.exemplars.frequent = 0.0
         self.project = None
         self.publishable = set()
 
