@@ -31,7 +31,7 @@ except ImportError:
 
 import json
 
-from ConfigParser import RawConfigParser
+from configparser import RawConfigParser
 
 libPath = "../../../sldr/python/lib/"
 
@@ -49,7 +49,8 @@ import sldr.ducet as ducet
 ##import xml.etree.cElementTree as etree
 # lxml preserves comments, also handles namespaces better:
 from xml.etree import ElementTree as etree
-from cStringIO import StringIO
+##from cStringIO import StringIO # Python 2.7
+from io import StringIO
 
 silns = {'sil' : "urn://www.sil.org/ldml/0.1" }
 
@@ -84,7 +85,7 @@ class DBLAuthV1(requests.auth.AuthBase):
         path = request.path_url.split('?')[0]
         collected_headers = {}
 
-        for key, value in request.headers.iteritems():
+        for key, value in request.headers.items():
             if key == self.authorization_header:
                 continue
             k = key.lower()
@@ -152,7 +153,7 @@ class DBLReader(object):
                     if id in fullResult:
                         (bogus, oldAccess) = fullResult[id]
                         if oldAccess != accessType:
-                            print "changing " + langCode + "_" + id + " from " + oldAccess + " to " + accessType
+                            print("changing " + langCode + "_" + id + " from " + oldAccess + " to " + accessType)
                     fullResult[id] = (langCode, accessType)
             httpResult = min(httpResult, response.status_code)
 
@@ -212,7 +213,7 @@ class DBLReader(object):
                             break
 
                         if path[-4:] == ".sfm" or path[-5:] == ".usfm" or path[-4:] == ".ptx":
-                            print "Found SFM file!!"
+                            print("Found SFM file!!")
 
                         # if downloadUrl is not None:
                         #     downloadUrl = downloadUrl.replace("http:", "https:")
@@ -223,9 +224,9 @@ class DBLReader(object):
                         #         downloadFileName = langCode + "_" + entryId + ext
                         #         #self._saveDownloadedFile(downloadPath, downloadFileName, response.content)
                         #         result[key] = downloadPath + "/" + downloadFileName
-                        #         print langCode + " - DOWNLOADED " + downloadUrl
+                        #         print(langCode + " - DOWNLOADED " + downloadUrl)
                             ###else:
-                            ### print langCode + " - can't download file " + downloadUrl + ": " + str(response.status_code)
+                            ### print(langCode + " - can't download file " + downloadUrl + ": " + str(response.status_code))
 
                     # end for...urlList
 
@@ -238,19 +239,19 @@ class DBLReader(object):
                             downloadFileName = langCode + "_" + entryId + ".zip"
                             self._saveDownloadedFile(downloadPath, downloadFileName, response.content)
                             result['usx'] = downloadPath + "/" + downloadFileName
-                            print langCode + " - DOWNLOADED " + downloadFileName
+                            print(langCode + " - DOWNLOADED " + downloadFileName)
                         else:
-                            print langCode + " - can't download zip file" + ": " + str(response.status_code)
+                            print(langCode + " - can't download zip file" + ": " + str(response.status_code))
                     else:
-                        print langCode + " - no usx files"
+                        print(langCode + " - no usx files")
 
                     return result
                 else:
-                    print langCode + " - can't access files"
+                    print(langCode + " - can't access files")
                     return response.status_code
                 # end if response.status_code == 200
             else:
-                print langCode + "_" + entryId + " - no licenses"
+                print(langCode + "_" + entryId + " - no licenses")
                 return 403  # forbidden
         else:
             return response.status_code
@@ -283,7 +284,7 @@ class DBLReader(object):
 def processSsf(ldml, ssfFilename):
     if ssfFilename is None:
         return
-    if isinstance(ssfFilename, basestring):
+    if isinstance(ssfFilename, str):  # Python 2 uses basestring
         ssfFile = open(ssfFilename, 'rb')
     else:
         ssfFile = ssfFilename
@@ -305,7 +306,7 @@ def processSsf(ldml, ssfFilename):
         'ValidPunctuation': None}
     
     for (event, e) in etree.iterparse(ssfFile, events=('start', 'end')) :
-        ##print event + ": " + e.tag
+        ##print(event + ": " + e.tag)
         if event == 'start' :
             if e.tag in ssfLangData :
                 ssfLangData[e.tag] = e.text
@@ -323,15 +324,22 @@ def processSsf(ldml, ssfFilename):
 
 
 def processLds(ldml, ldsFilename, ducetDict):
-    if isinstance(ldsFilename, basestring):
-        ldsFile = codecs.open(ldsFilename, 'r')
+    ldsConfig = RawConfigParser()
+
+    if isinstance(ldsFilename, str):  # Python 2 uses basestring
+        ldsFile = codecs.open(ldsFilename, 'r', "utf-8")
         # The RawConfigParser chokes on the BOM.
-        ldsFile = _removeBom(ldsFile, ldsFilename)
+        #try:
+        ldsFile = _removeBom(ldsFile, ldsFilename, "utf-8")
+        ldsConfig.read(ldsFilename, "utf-8")
+        #except:
+        #    # Try again with latin1 encoding.
+        #    ldsFile = codecs.open(ldsFilename, mode='r', encoding="latin_1")
+        #    ldsFile = _removeBom(ldsFile, ldsFilename, "latin_1")
+        #    ldsConfig.read(ldsFilename, "latin_1")
     else:
         ldsFile = ldsFilename
 
-    ldsConfig = RawConfigParser()
-    ldsConfig.read(ldsFilename)     # let exception rise up
     sortSpecString = calcSortLdsData(ldml, ldsConfig, ducetDict)
 
     if not len(sortSpecString):
@@ -420,22 +428,29 @@ def _valueNotNo(value) :
         return False
     return True
 
-def _removeBom(openFile, filename):
-    bomMaybe = openFile.read(3)
-    if ord(bomMaybe[0]) == 239 and ord(bomMaybe[1]) == 187 and ord(bomMaybe[2]) == 191:
+def _removeBom(openFile, filename, enc="default"):
+    openFile.close()
+    binaryFile = codecs.open(filename, 'rb')  # open in binary mode, to avoid encoding issues
+    bomMaybe = binaryFile.read(3)
+    if bomMaybe[0] == 239 and bomMaybe[1] == 187 and bomMaybe[2] == 191:
         # Create a new file with no BOM.
         filenameNoBom = filename + "_nobom"
-        fileNoBom = open(filenameNoBom, 'w')
+        fileNoBom = open(filenameNoBom, 'wb')
+        cc = 3;
         while True:
-            c = openFile.read(1)
+            c = binaryFile.read(1)
+            cc = cc + 1;
             if not c: break
             fileNoBom.write(c)
         fileNoBom.close()
-        openFile.close()
+        binaryFile.close()
         os.remove(filename)
         os.rename(filenameNoBom, filename)
         # Open it like it was when the method started.
-        newOpenFile = open(filename, 'r')
+        if enc == "default":
+            newOpenFile = codecs.open(filename, 'r')
+        else:
+            newOpenFile = codecs.open(filename, 'r', enc)
         return newOpenFile
     else:
         return openFile
@@ -482,19 +497,19 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
 
     # Generate a data structure similar to a sort tailoring for the list of characters.
     sortResult = []
-    collObj = Collation()
+    collObj = Collation(ducetDict)
     alphabet = []
     if len(valueList) > 0 :
         currBase = None
         for value in valueList :
-            uValue = value.decode('utf-8')
+            uValue = value  # Python 2: .decode('utf-8')
             spaceItems = uValue.split(' ')
 
             if len(spaceItems) == 2 and spaceItems[0].lower() == spaceItems[1].lower():
                 # Kludge: deal with a limitation of Paratext. Since these items are case equivalent, the user probably
                 # intended x/X rather than x X and was not permitted by Paratext.
                 value = value.replace(' ', '/')
-                uValue = value.decode('utf-8')
+                uValue = value  # Python 2: .decode('utf-8')
                 spaceItems = uValue.split(' ')
 
             sortSpecItems = []
@@ -527,7 +542,7 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
 
                         
     collObj.minimise(alphabet)
-    print collObj.asICU()
+    print(collObj.asICU())
     return collObj.asICU()
 
 # end of calcSortLdsData
@@ -679,10 +694,10 @@ def _charToInt(charsStr):
     result = []
     i = 0
     while i < len(charsStr):
-        if charsStr[i:i+2] == "\u":
+        if charsStr[i:i+2] == "\\u":
             result.append(int(charsStr[i+2:i+6], 16))
             i = i + 5
-        elif charsStr[i:i+2] == "\U":
+        elif charsStr[i:i+2] == "\\U":
             result.append(int(charsStr[i+2:i+10], 16))
             i = i + 9
         else : ### isinstance(charItem, list) :
@@ -750,17 +765,17 @@ def downloadFromDbl(mainPath, downloadPath, langCode = ''):
     ###code = dblreader.testAccess()
     ###t = dblreader.getLicenses()
     ###if code != 200:
-    ###    print "ERROR in accessing DBL; HTTP response code = ",code
+    ###    print("ERROR in accessing DBL; HTTP response code = ",code)
 
     entriesDict = dblreader.getEntries()
     if isinstance(entriesDict, int):
-        print "ERROR in obtaining DBL entries; HTTP response code = ",entriesDict
+        print("ERROR in obtaining DBL entries; HTTP response code = ",entriesDict)
         return False
     else:
-        for (entryId, entryInfo) in entriesDict.iteritems():
+        for (entryId, entryInfo) in entriesDict.items():
             (entryLangCode, entryAccessType) = entryInfo
             if entryLangCode != 'eng' and entryLangCode != 'en':
-                print "Downloading: " + entryId + " - " + entryLangCode
+                print("Downloading: " + entryId + " - " + entryLangCode)
                 entryInfo = dblreader.downloadOneEntry(entryId, entryLangCode, entryAccessType, downloadPath)
         return True
 
@@ -860,16 +875,16 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
         dblObj.close_project()
         dblObj.analyze_projects()
     except Exception as err:
-        print "ERROR processing exemplars: " + str(err)
-        print type(err)
-        print err.args
+        print("ERROR processing exemplars: " + str(err))
+        print(type(err))
+        print(err.args)
         dblObj.close_project()
 
-    print dblObj.exemplars.main
-    print dblObj.exemplars.auxiliary
-    print dblObj.exemplars.index
-    print dblObj.exemplars.punctuation
-    print dblObj.exemplars.script
+    print(dblObj.exemplars.main)
+    print(dblObj.exemplars.auxiliary)
+    print(dblObj.exemplars.index)
+    print(dblObj.exemplars.punctuation)
+    print(dblObj.exemplars.script)
 
     for (ldmlType, oldValue, newValue) in\
                     (('', mainChTextOrig, dblObj.exemplars.main),
@@ -890,7 +905,7 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
                 chElem = ldml.ensure_path(xpath, draft="generated")[0]
                 ldml.change_draft(chElem, "generated")
             else:
-                # mismatch; old value is suspect, new value is draft and alt=proposed-dbl
+                # mismatch; old value is marked suspect and alt=proposed-db, new value is draft
                 chElemSuspect = ldml.ensure_path(xpath)[0]
                 chElemSuspect.text = oldValue
                 ldml.change_draft(chElemSuspect, "suspect")
@@ -908,7 +923,9 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
         node = ldml.find('characters/special/sil:exemplarCharacters[@type="' + attr + '"]')
         if node is not None and (node.text == '' or node.text == '[]'):
             specialNode.remove(node)
-    if len(specialNode) == 0:
+    if specialNode is None:
+        pass
+    elif len(specialNode) == 0:  # do we still need this case?
         charNode = ldml.find('characters')
         charNode.remove(specialNode)
 
@@ -921,33 +938,34 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
         try:
             processSsf(ldml, ssfFilename)
         except Exception as err:
-            print "ERROR processing .ssf file: " + str(err)
-            print type(err)
-            print err.args
+            print("ERROR processing .ssf file: " + str(err))
+            print(type(err))
+            print(err.args)
 
-    # Any <cr> element in <collation> is suspect.
+    # Any <cr> element in <collation> is suspect. In fact, just go ahead and delete it.
     collationNode = ldml.find('collations/collation')
     if collationNode is not None:
         collCrNode = collationNode.find('cr')
         if collCrNode is not None:
-            ldml.change_draft(collCrNode, "suspect")
-            collCrNode.text = cleanUpOldSortSpec(collCrNode.text)
+            collationNode.remove(collCrNode)
+            #ldml.change_draft(collCrNode, "suspect")
+            #collCrNode.text = cleanUpOldSortSpec(collCrNode.text)
 
     if ldsFilename is not None and  os.path.isfile(ldsFilename):
         try:
             processLds(ldml, ldsFilename, ducetDict)
         except Exception as err:
-            print "ERROR processing .lds file: " + str(err)
-            print type(err)
-            print err.args
+            print("ERROR processing .lds file: " + str(err))
+            print(type(err))
+            print(err.args)
 
     if hasMetaDataFile:
         try:
             processMetadata(ldml, 'metadata.xml')
         except Exception as err:
-            print "ERROR processing metadata.xml file: " + str(err)
-            print type(err)
-            print err.args
+            print("ERROR processing metadata.xml file: " + str(err))
+            print(type(err))
+            print(err.args)
 
     # Generation time
     dateNow = datetime.utcnow()
@@ -972,9 +990,9 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
 def processProjects(dblPath, inputPath, outputPath, filterLangCode = '', filterZipFile = ''):
     import sys
     if sys.maxunicode == 0x10FFFF:
-        print 'Python built with UCS4 (wide unicode) support'
+        print('Python built with UCS4 (wide unicode) support')
     else:
-        print 'Python built with UCS2 (narrow unicode) support'
+        print('Python built with UCS2 (narrow unicode) support')
 
     ducetDict = ducet.readDucet()
 
@@ -997,20 +1015,20 @@ def processProjects(dblPath, inputPath, outputPath, filterLangCode = '', filterZ
             if langCode[2:3] == "_":
                 langCode = basename[0:2]
 
-            #if langCode != "kgk":   # TEMPORARY
+            #if langCode < "suz":   # TEMPORARY
             #    continue
 
             if filterLangCode == '' or langCode == filterLangCode:
                 try:
-                    print ""
-                    print "-----------"
-                    print "Processing: " + filename
+                    print("")
+                    print("-----------")
+                    print("Processing: " + filename)
                     filePlusPath = inputPath + filename
                     processOneProject(dblPath, outputPath, ducetDict, filePlusPath, langCode)
                 except Exception as err:
-                    print "ERROR: " + str(err)
-                    print type(err)
-                    print err.args
+                    print("ERROR: " + str(err))
+                    print(type(err))
+                    print(err.args)
 
                 count = count + 1
 
@@ -1033,7 +1051,7 @@ def downloadAndProcess(updateDblSource, zipFile, dblPath, inputPath, outputPath)
         ok = True
     if ok:
         langCode = ''
-        ####langCode = 'bel'  # debugging
+        #langCode = 'abx'  # debugging
         processProjects(dblPath, inputPath, outputPath, langCode, zipFile)
 
 # end of downloadAndProcess
