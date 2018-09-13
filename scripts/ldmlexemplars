@@ -24,7 +24,8 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
-import os, os.path
+import os
+import os.path
 import sys
 import codecs
 from argparse import ArgumentParser
@@ -103,14 +104,14 @@ def main():
         ldml_file.write(u'script      {}\n'.format(dbl.exemplars.script))
 
 
-def text_for_exemplars(e, props=set(("publishable", "vernacular"))):
+def text_for_exemplars(e, props={"publishable", "vernacular"}):
     es = set(e.meta.get('TextProperties', []))
     return "note" not in es and props <= es
 
 
 def _flatten(doc):
-    return sfm.sreduce(lambda e,ts,_: ts,
-                       lambda e,ts: ts.append(e) or ts,
+    return sfm.sreduce(lambda e, ts, _: ts,
+                       lambda e, ts: ts.append(e) or ts,
                        doc, [])
 
 
