@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -30,8 +30,6 @@ import sys
 import codecs
 from argparse import ArgumentParser
 from icu import UNICODE_VERSION, ICU_VERSION, VERSION
-import palaso.sfm as sfm
-from palaso.sfm import usfm, style
 
 try:
     from wstools.dbl import DBL
@@ -80,39 +78,21 @@ def main():
             dbl.close_project()
         else:
             with codecs.open(project, 'r', encoding='utf_8_sig') as source:
-                if src_type.endswith('sfm'):
-                    doc = sfm.sfilter(text_for_exemplars, usfm.parser(source))
-                    txt = ''.join(_flatten(doc))
-                    with codecs.open(project + '.text', 'w', encoding='utf-8') as textfile:
-                        textfile.write(txt)
-                        dbl.exemplars.process(txt)
-                else:
-                    for line in source:
-                        dbl.exemplars.process(line)
+                for line in source:
+                    dbl.exemplars.process(line)
     dbl.analyze_projects()
 
     # Display the exemplars.
     with codecs.open(ldml_filename + '.ldml', 'w', encoding='utf-8') as ldml_file:
         ldml_file.write(' '.join(args.project) + '\n')
-        ldml_file.write(u'main        {}\n'.format(dbl.exemplars.main))
-        ldml_file.write(u'auxiliary   {}\n'.format(dbl.exemplars.auxiliary))
-        ldml_file.write(u'index       {}\n'.format(dbl.exemplars.index))
-        ldml_file.write(u'punctuation {}\n'.format(dbl.exemplars.punctuation))
-        ldml_file.write(u'digits      {}\n'.format(dbl.exemplars.digits))
-        ldml_file.write(u'graphemes   {}\n'.format(dbl.exemplars.graphemes))
-        ldml_file.write(u'frequency   {}\n'.format(dbl.exemplars.frequency))
-        ldml_file.write(u'script      {}\n'.format(dbl.exemplars.script))
-
-
-def text_for_exemplars(e, props={"publishable", "vernacular"}):
-    es = set(e.meta.get('TextProperties', []))
-    return "note" not in es and props <= es
-
-
-def _flatten(doc):
-    return sfm.sreduce(lambda e, ts, _: ts,
-                       lambda e, ts: ts.append(e) or ts,
-                       doc, [])
+        ldml_file.write('main        {}\n'.format(dbl.exemplars.main))
+        ldml_file.write('auxiliary   {}\n'.format(dbl.exemplars.auxiliary))
+        ldml_file.write('index       {}\n'.format(dbl.exemplars.index))
+        ldml_file.write('punctuation {}\n'.format(dbl.exemplars.punctuation))
+        ldml_file.write('digits      {}\n'.format(dbl.exemplars.digits))
+        ldml_file.write('graphemes   {}\n'.format(dbl.exemplars.graphemes))
+        ldml_file.write('frequency   {}\n'.format(dbl.exemplars.frequency))
+        ldml_file.write('script      {}\n'.format(dbl.exemplars.script))
 
 
 if __name__ == '__main__':

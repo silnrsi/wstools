@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # Read a Paratext .ssf file, convert the relevant data to LDML, and insert into an LDML file.
 import sys

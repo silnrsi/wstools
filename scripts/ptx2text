@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -24,36 +24,38 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
-import os
-import sys
-import unittest
-
-try:
-    from wstools.dbl import DBL
-except ImportError:
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'lib', 'wstools')))
-    from dbl import DBL
+import codecs
+from argparse import ArgumentParser
+import palaso.sfm as sfm
+from palaso.sfm import usfm, style
 
 
-class DBLTests(unittest.TestCase):
+def main():
+    parser = ArgumentParser(
+        description='Extract text from USFM files')
+    parser.add_argument('ptx', nargs='+', help='USFM file')
+    parser.add_argument('--version', action='version', version='%(prog)s: 0.1')
+    args = parser.parse_args()
 
-    def setUp(self):
-        self.dbl = DBL()
+    # Extract text.
+    for ptx in args.ptx:
+        with codecs.open(ptx, 'r', encoding='utf_8_sig') as source:
+            doc = sfm.sfilter(text_for_exemplars, usfm.parser(source))
+            txt = ''.join(_flatten(doc))
+            with codecs.open(ptx + '.text3', 'w', encoding='utf-8') as textfile:
+                textfile.write(txt)
 
-    def tearDown(self):
-        pass
 
-    def test_get_text(self):
-        with open('styles.xml', 'r') as style:
-            self.dbl._read_stylesheet(style)
+def text_for_exemplars(e, props={"publishable", "vernacular"}):
+    es = set(e.meta.get('TextProperties', []))
+    return "note" not in es and props <= es
 
-        with open('MAT.usx', 'r') as usx:
-            all_text = ''
-            for text in self.dbl._process_usx_file(usx):
-                all_text += text
 
-        self.assertEqual('abcdefghijklmnopqrstuvz', all_text)
+def _flatten(doc):
+    return sfm.sreduce(lambda e, ts, _: ts,
+                       lambda e, ts: ts.append(e) or ts,
+                       doc, [])
 
 
 if __name__ == '__main__':
-    unittest.main()
+    main()
