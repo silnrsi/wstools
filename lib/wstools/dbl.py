@@ -35,9 +35,9 @@ from shutil import copyfile
 try:
     from sldr.ldml_exemplars import Exemplars
 except ImportError:
-    #sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'sldr', 'python', 'lib')))
-    newDir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'sldr', 'python', 'lib'))
-    sys.path.insert(-1, newDir)
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'palaso-python', 'lib', 'palaso')))
+    #newDir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'palaso-python', 'lib', 'palaso'))
+    #sys.path.insert(-1, newDir)
     from sldr.ldml_exemplars import Exemplars
 
 
