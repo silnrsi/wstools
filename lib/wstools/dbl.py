@@ -54,6 +54,7 @@ class DBL(object):
         self.exemplars.frequent = 0.0
         self.project = None
         self.publishable = set()
+        self.main_text = ('p', 'q')
 
     def open_project(self, zipfilename):
         """Open a DBL project zip file."""
@@ -109,7 +110,8 @@ class DBL(object):
         tree = ET.parse(usx)
         root = next(tree.iter())
         for marker in list(root):
-            if marker.get('style') in self.publishable:
+            style = marker.get('style')
+            if style in self.publishable and style.startswith(self.main_text):
                 for text in self._get_text(marker):
                     yield text
         usx.close()

@@ -19,8 +19,8 @@
   <para style="p">n<verse number="2" style="v"/>o<verse number="3" style="v"/>p</para>
   <para style="q">
     <verse number="4" style="v"/>q<verse number="5" style="v"/>r</para>
-  <para style="q">s</para>
-  <para style="q">t</para>
+  <para style="q2">s</para>
+  <para style="q3">t</para>
   <para style="p">u
     <verse number="6" style="v"/>v<note caller="+" style="f"><char style="fr" closed="false">w</char><char style="fq" closed="false">x</char><char style="ft" closed="false">y</char></note>z</para>
 </usx>
