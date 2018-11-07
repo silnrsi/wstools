@@ -57,7 +57,7 @@ def main():
 
     # User settable configuration.
     dbl.exemplars.many_bases = 5
-    dbl.exemplars.frequent = 1
+    dbl.exemplars.frequent = 0
 
     # From existing LDML files.
     dbl.exemplars.main = '[]'
@@ -67,12 +67,13 @@ def main():
     dbl.exemplars.digits = '[]'
 
     # Find exemplars in the data.
-    ldml_filename = ''
+    data_filename = ''
     for project in args.project:
-        ldml_filename = os.path.normcase(project)
-        src_type = os.path.splitext(ldml_filename)[1].lower()
+        data_filename = os.path.normcase(project)
+        (base_filename, src_type) = os.path.splitext(data_filename)
+        src_type = src_type.lower()
         if src_type == '.zip':
-            dbl.open_project(project)
+            dbl.open_project(data_filename)
             # dbl.query_project()
             dbl.process_project()
             dbl.close_project()
@@ -83,7 +84,7 @@ def main():
     dbl.analyze_projects()
 
     # Display the exemplars.
-    with codecs.open(ldml_filename + '.ldml', 'w', encoding='utf-8') as ldml_file:
+    with codecs.open(base_filename + '.ldml', 'w', encoding='utf-8') as ldml_file:
         ldml_file.write(' '.join(args.project) + '\n')
         ldml_file.write('main        {}\n'.format(dbl.exemplars.main))
         ldml_file.write('auxiliary   {}\n'.format(dbl.exemplars.auxiliary))

@@ -42,7 +42,7 @@ def main():
         with codecs.open(ptx, 'r', encoding='utf_8_sig') as source:
             doc = sfm.sfilter(text_for_exemplars, usfm.parser(source))
             txt = ''.join(_flatten(doc))
-            with codecs.open(ptx + '.text3', 'w', encoding='utf-8') as textfile:
+            with codecs.open(ptx + '.text', 'w', encoding='utf-8') as textfile:
                 textfile.write(txt)
 
 
