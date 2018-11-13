@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 
-# Read a Paratext .ssf file, convert the relevant data to LDML, and insert into an LDML file.
+# Read a Paratext files (.lds and .ssf), convert the relevant data to LDML, and insert into an LDML file.
+# Given the right options, can also download the Paratext files from the DBL.
+
 import sys
 import collections
 import codecs
@@ -289,7 +291,7 @@ def processSsf(ldml, ssfFilename):
     else:
         ssfFile = ssfFilename
 
-    ssfLangData = {  # initializing everything to None simplies the processing
+    ssfLangData = {  # initializing everything to None simplifies the processing
         'DefaultFont': None,
         'DefaultFontSize': None,
         'ValidCharacters': None,
@@ -340,28 +342,102 @@ def processLds(ldml, ldsFilename, ducetDict):
     else:
         ldsFile = ldsFilename
 
+    # Sort specification
+
     sortSpecString = calcSortLdsData(ldml, ldsConfig, ducetDict)
 
-    if not len(sortSpecString):
-        return
+    if len(sortSpecString):
+        collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
+        crElem = ldml.addnode(collationElem, 'cr')
+        crElem.text = sortSpecString
+        # CDATA handling done by ldml object, we hope
 
-    collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
-    crElem = ldml.addnode(collationElem, 'cr')
-    crElem.text = sortSpecString
-    # CDATA handling done by ldml object, we hope
+    # Font name and size
+
+    if ldsConfig.has_section('General'):
+        fontValue = None
+        sizeValue = None
+        if ldsConfig.has_option('General', 'font'):
+            fontValue = ldsConfig.get('General', 'font')
+        if ldsConfig.has_option('General', 'size'):
+            sizeValue = ldsConfig.get('General', 'size')
+
+        _addLdsSsfDataFont(ldml, fontValue, sizeValue)
 
 
-def _addSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
+def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
     # DefaultFont, DefaultFontSize ->
     # special/sil:external-resources/sil:fontrole[@types="default"]/sil:font[@name, @size]
     # TODO: this isn't quite right since it should handle an existing sil:fontrole[@types="default heading"]
-    fontElemp = ldml.ensure_path('special/sil:external-resources/sil:fontrole[@types="default"]')[0]
-    attrs = {}
-    if defaultFontValue :
-        attrs['name'] = defaultFontValue
-    if defaultSizeValue :
-        attrs['size'] = defaultSizeValue
-    fontElem = ldml.addnode(fontElemp, 'sil:font', attrib=attrs)
+    #fontElemp = ldml.ensure_path('special/sil:external-resources/sil:fontrole[@types="default"]')[0]
+    # Or (more likely) this might come from the .lds file.
+
+    xpath = 'special/sil:external-resources/sil:font[@types=\"default\"]'
+
+    exResNode = ldml.ensure_path('special/sil:external-resources')[0]
+    fontElemNode = ldml.ensure_path('special/sil:external-resources/sil:font')[0]
+    #fontElemNode = ldml.ensure_path(xpath)[0]
+
+    defaultSizeFactor = 1.0
+    if defaultSizeValue:
+        # We treat Times New Roman size 14 as the standard.
+        defaultSizeFactor = int(defaultSizeValue) / 14
+        # Round to the nearest .05:
+        defaultSizeFactor = (int(defaultSizeFactor * 20)) / 20
+        # Factors close to 1.0 are not really significant.
+        if defaultSizeFactor > .92 and defaultSizeFactor < 1.08:
+            defaultSizeFactor = 1.0
+
+    if fontElemNode is None:
+        fontElemGen = ldml.ensure_path(xpath, draft="generated")[0]
+
+    else:
+        fontElemAttrs = fontElemNode.attrib
+        fontNamePrev = fontElemAttrs['name'] if 'name' in fontElemAttrs else None
+        fontSizePrev = fontElemAttrs['size'] if 'size' in fontElemAttrs else None
+
+        if fontNamePrev is None or fontNamePrev == "":
+            # Throw away old empty value.
+            if defaultFontValue is None or defaultFontValue == '':
+                # Remove altogether.
+                exResNode.remove(fontElemNode)
+                fontElemGen = None
+            else:
+                fontElemGen = ldml.ensure_path(xpath, draft="generated")[0]
+                ldml.change_draft(fontElem, "generated")
+        elif fontNamePrev != defaultFontValue:
+            # mismatch; old value is marked suspect and alt=proposed-dbl, new value is draft
+            fontElemSuspect = fontElemNode    #ldml.ensure_path(xpath)[0]
+            if not 'types' in fontElemSuspect.attrib:
+                fontElemSuspect.attrib['types'] = "default"
+            ldml.change_draft(fontElemSuspect, "suspect")
+            fontElemGen = ldml.ensure_path(xpath, draft="generated", matchdraft="draft")[0]
+        else:
+            # Font values match.
+            if defaultSizeValue is None or defaultSizeFactor == fontSizePrev or defaultSizeFactor == 1.0:
+                fontElemGen = None  # no change
+                # Maybe we should clear the size attribute if it is there, but none of these
+                # files actually have size in them, so don't bother.
+            else:
+                # There is a size to set, but don't bother creating a new node, use the existing one.
+                # Set types="default" on existing node.
+                if not 'types' in fontElemNode.attrib:
+                    fontElemNode.attrib['types'] = "default"
+                fontElemGen = ldml.ensure_path(xpath)[0]  # fontElemGen should = fontElemNode
+
+    if fontElemGen is not None:
+        # Set up the new font node.
+        attrs = {}
+        if defaultFontValue:
+            attrs['name'] = defaultFontValue
+        if defaultSizeFactor != 1.0:
+            attrs['size'] = str(defaultSizeFactor)
+
+        attrs['types'] = 'default'
+        attrs['draft'] = 'generated'
+        fontElemGen.attrib = attrs
+
+#end of _addLdsSsfDataFont
 
 
 def _addSsfDataPairs(ldml, pairsValue) :
@@ -538,6 +614,8 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
                     currBase = s
                     alphabet.append(s)
                 currLevel = 2
+            # end for spaceItems
+        # end for valueList
     # end if
 
                         
@@ -905,7 +983,7 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
                 chElem = ldml.ensure_path(xpath, draft="generated")[0]
                 ldml.change_draft(chElem, "generated")
             else:
-                # mismatch; old value is marked suspect and alt=proposed-db, new value is draft
+                # mismatch; old value is marked suspect and alt=proposed-dbl, new value is draft
                 chElemSuspect = ldml.ensure_path(xpath)[0]
                 chElemSuspect.text = oldValue
                 ldml.change_draft(chElemSuspect, "suspect")
@@ -1015,7 +1093,7 @@ def processProjects(dblPath, inputPath, outputPath, filterLangCode = '', filterZ
             if langCode[2:3] == "_":
                 langCode = basename[0:2]
 
-            #if langCode < "suz":   # TEMPORARY
+            #if langCode < "na":   # TEMPORARY
             #    continue
 
             if filterLangCode == '' or langCode == filterLangCode:
@@ -1051,7 +1129,7 @@ def downloadAndProcess(updateDblSource, zipFile, dblPath, inputPath, outputPath)
         ok = True
     if ok:
         langCode = ''
-        #langCode = 'abx'  # debugging
+        #langCode = 'aeb'  # debugging
         processProjects(dblPath, inputPath, outputPath, langCode, zipFile)
 
 # end of downloadAndProcess
