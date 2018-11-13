@@ -35,7 +35,8 @@ import json
 
 from configparser import RawConfigParser
 
-libPath = "../../../sldr/python/lib/"
+##libPath = "../../../sldr/python/lib/"
+libPath = "../../../palaso-python/lib/palaso/"
 
 try:
     from sldr.ldml import Ldml
@@ -44,7 +45,8 @@ except ImportError:
     from sldr.ldml import Ldml
 
 from sldr.collation import Collation, CollElement
-from sldr.langtags import LangTag
+###from sldr.langtags import LangTag
+from langtags import LangTag
 import sldr.ducet as ducet
 
 
