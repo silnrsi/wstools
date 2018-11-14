@@ -52,7 +52,7 @@ class DBLTests(unittest.TestCase):
             for text in self.dbl._process_usx_file(usx):
                 all_text += text
 
-        self.assertEqual('mnopqrstuvz', all_text)
+        self.assertEqual('hkmnopqrstuvz', all_text)
 
 
 if __name__ == '__main__':

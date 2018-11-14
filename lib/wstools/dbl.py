@@ -54,7 +54,7 @@ class DBL(object):
         self.exemplars.frequent = 0.0
         self.project = None
         self.publishable = set()
-        self.main_text = ('p', 'q')
+        self.main_text = ('ip', 's', 'p', 'q')
 
     def open_project(self, zipfilename):
         """Open a DBL project zip file."""
