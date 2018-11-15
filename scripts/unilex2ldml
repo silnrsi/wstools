@@ -206,11 +206,11 @@ def processFiles(inputPath, outputPath, sldrPath, filterLangCode = ''):
         if filename.endswith('.txt'):   # and os.path.isfile(filename)
             basename = os.path.basename(filename)
             langCode = basename[0:3]
-            if langCode[2:3] == "_" or langCode[2:3] == "-":
+            if langCode[2:3] == "_" or langCode[2:3] == "-" or langCode[2:3] == ".":
                 langCode = basename[0:2]
 
-            if langCode < "acr":   # TEMPORARY
-                continue
+            #if langCode < "ar":   # TEMPORARY
+            #    continue
 
             if filterLangCode is None or filterLangCode == '' or langCode == filterLangCode:
                 existingLdml = sldrFileFor(langCode, sldrPath)
