@@ -1,0 +1,254 @@
+#!/usr/bin/python3
+
+# Read Unilex files and generate an LDML file with character exemplars.
+
+import sys
+import collections
+import codecs
+import copy
+import os
+import unicodedata
+import xml.etree.cElementTree as et
+
+# For calling DBLAuthV1 class:
+# The requests module may need to be installed separately; it does not appear to be part of the standard Python.
+import requests
+from datetime import datetime
+from wsgiref.handlers import format_date_time
+from time import mktime
+
+# The authorization key is stored in a different file:
+try:
+    import dblauthkey
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
+#try:
+#    from dbl import DBL
+#except ImportError:
+#    relpath = os.path.join(os.path.dirname(__file__), '..', 'lib', 'wstools')
+#    sys.path.append(sys.path.append(os.path.abspath(relpath)))
+#    from dbl import DBL
+
+#import json
+
+#from configparser import RawConfigParser
+
+##libPath = "../../../sldr/python/lib/"
+libPath = "../../../palaso-python/lib/palaso/"
+
+try:
+    from sldr.ldml import Ldml
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.dirname(__file__) + libPath))
+    from sldr.ldml import Ldml
+
+
+try:
+    from sldr.ldml_exemplars import Exemplars
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'palaso-python', 'lib', 'palaso')))
+    #newDir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'palaso-python', 'lib', 'palaso'))
+    #sys.path.insert(-1, newDir)
+    from sldr.ldml_exemplars import Exemplars
+
+
+##import xml.etree.cElementTree as etree
+# lxml preserves comments, also handles namespaces better:
+from xml.etree import ElementTree as etree
+##from cStringIO import StringIO # Python 2.7
+#from io import StringIO
+
+silns = {'sil' : "urn://www.sil.org/ldml/0.1" }
+
+
+class UnilexSet(object):
+
+    def __init__(self):
+        self.exemplars = Exemplars()
+        # For DBL data, we have our doubts as to whether frequency is a good indicator of whether a character
+        # is main or auxiliary. So set the threshold to zero which will treat all characters found as main.
+        self.exemplars.frequent = 0.0
+        self.filename = None
+
+    def openSet(self, filename):
+        self.filename = filename
+
+    def processSet(self):
+        """Process a single Unilex word-frequency file."""
+
+        with open(self.filename, encoding='utf-8') as fp:
+            for line in fp:
+                if line[0:4] == "Form":  # header line
+                    pass
+                elif line[0:1] == "#":  # comment
+                    pass
+                elif len(line.strip()) == 0:  # blank line
+                    pass
+                else:
+                    pieces = line.split('\t')
+                    word = pieces[0].strip()
+                    self.exemplars.process(word)
+
+    def closeSet(self):
+        """Close the UnilexSet. Nothing do to, since `with open...` automatically closes the file."""
+        # self.file.close()
+        pass
+
+    def analyzeSet(self):
+        self.exemplars.analyze()
+
+# end of class UnilexSet
+
+
+def _debugStr(item):
+    if isinstance(item, int):
+        item = [item]
+    result = "".join(map(unichr, item))
+    result += " =" + " ".join(map(hex, item))
+    return repr(result)
+
+
+# Return true if the sldrPath includes a file for this language code
+def sldrFileFor(langCode, sldrPath):
+    if sldrPath is None or sldrPath == '':
+        return None
+
+    if sldrPath[:-1] != '/':
+        sldrPath = sldrPath + '/'
+    subFolder = langCode[0:1]
+    sldrFilePath = sldrPath + subFolder
+    sldrFileList = os.listdir(sldrFilePath)
+    for fname in sldrFileList:
+        sldrLangCode = fname[0:3]
+        if sldrLangCode[2:3] == "_" or sldrLangCode[2:3] == "." or sldrLangCode[2:3] == "-":
+            sldrLangCode = fname[0:2]
+        if langCode == sldrLangCode:  # found it
+            return fname
+    return None
+
+
+def processOneFile(filePlusPath, outputPath, sldrPath, langCode):
+    unilexSet = UnilexSet()
+    unilexSet.openSet(filePlusPath)
+
+    unilexSet.exemplars.main = ''
+    unilexSet.exemplars.auxiliary = ''
+    unilexSet.exemplars.index = ''
+    unilexSet.exemplars.punctuation = ''
+
+    try:
+        unilexSet.processSet()
+        unilexSet.closeSet()
+        unilexSet.analyzeSet()
+    except Exception as err:
+        print("ERROR processing exemplars: " + str(err))
+        print(type(err))
+        print(err.args)
+        unilexSet.closeSet()
+        return
+
+    print(unilexSet.exemplars.main)
+    print(unilexSet.exemplars.auxiliary)
+    print(unilexSet.exemplars.index)
+    print(unilexSet.exemplars.punctuation)
+    print(unilexSet.exemplars.script)
+
+    ldml = Ldml(None)
+    ldml.uid = "unilex"
+
+    for (ldmlType, newValue) in\
+                    (('', unilexSet.exemplars.main),
+                     ('auxiliary', unilexSet.exemplars.auxiliary),
+                     ('index', unilexSet.exemplars.index),
+                     ('punctuation', unilexSet.exemplars.punctuation)):
+
+        xpath = 'characters/exemplarCharacters[@type="' + ldmlType + '"]'
+        if newValue == "[]":
+            chElem = None  # ignore new empty value
+        else:
+            # no previous value; mark new value generated
+            chElem = ldml.ensure_path(xpath, draft="generated")[0]
+            chElem.text = newValue
+
+    langElem = ldml.ensure_path('identity/language[@type="' + langCode + '"]')[0]
+
+    scriptCode = unilexSet.exemplars.script
+    scriptElem = ldml.ensure_path('identity/script')[0]
+    scriptElem.text = scriptCode
+
+    # Generation time
+    dateNow = datetime.utcnow()
+    genTimeValue = datetime.strftime(dateNow, "%Y-%m-%d %H:%M:%S")
+    genTimeNode = ldml.ensure_path('identity/generation')[0]
+    genTimeNode.set('date', genTimeValue)
+
+    ldmlOutputFilename = outputPath + "/" + langCode + "_" + scriptCode + ".xml"
+    ldmlOutFile = codecs.open(ldmlOutputFilename, 'w', encoding="utf-8")
+    ldml.normalise()
+    ldml.serialize_xml(ldmlOutFile.write)
+
+
+def processFiles(inputPath, outputPath, sldrPath, filterLangCode = ''):
+    import sys
+    if sys.maxunicode == 0x10FFFF:
+        print('Python built with UCS4 (wide unicode) support')
+    else:
+        print('Python built with UCS2 (narrow unicode) support')
+
+    max = 10
+    count = 0
+    filelist = os.listdir(inputPath)
+    if inputPath[:-1] != '/':
+        inputPath = inputPath + '/'
+
+    for filename in filelist:
+        if filename.endswith('.txt'):   # and os.path.isfile(filename)
+            basename = os.path.basename(filename)
+            langCode = basename[0:3]
+            if langCode[2:3] == "_" or langCode[2:3] == "-":
+                langCode = basename[0:2]
+
+            if langCode < "acr":   # TEMPORARY
+                continue
+
+            if filterLangCode is None or filterLangCode == '' or langCode == filterLangCode:
+                existingLdml = sldrFileFor(langCode, sldrPath)
+                if existingLdml is None:
+                    try:
+                        print("")
+                        print("-----------")
+                        print("Processing: " + filename)
+                        filePlusPath = inputPath + filename
+                        processOneFile(filePlusPath, outputPath, sldrPath, langCode)
+                    except Exception as err:
+                        print("ERROR: " + str(err))
+                        print(type(err))
+                        print(err.args)
+                else:
+                    print("")
+                    print("--- SLDR file '" + existingLdml + "' exists")
+
+                count = count + 1
+
+            #if filterZipFile is not None and filterZipFile != '':
+            #    break  # we've handled the one file specified
+
+            #if count > max:
+            #    break
+        # end if filename ends with zip
+    # end for files
+
+# end of processFiles
+
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-l','--lang', help="language ID to process")
+    parser.add_argument('-i', '--input', default="./unilex/data/frequency", help="input path")
+    parser.add_argument('-o', '--output', default="./temp_output")
+    parser.add_argument('-s', '--sldr', default="./sldr_data/sldr", help="Existing SLDR data files")
+    args = parser.parse_args()
+
+    processFiles(args.input, args.output, args.sldr, args.lang)
