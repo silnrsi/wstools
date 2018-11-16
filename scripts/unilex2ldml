@@ -88,6 +88,7 @@ class UnilexSet(object):
                 else:
                     pieces = line.split('\t')
                     word = pieces[0].strip()
+                    #freq = int(pieces[1].strip())
                     self.exemplars.process(word)
 
     def closeSet(self):
@@ -117,18 +118,29 @@ def sldrFileFor(langCode, sldrPath):
     if sldrPath[:-1] != '/':
         sldrPath = sldrPath + '/'
     subFolder = langCode[0:1]
-    sldrFilePath = sldrPath + subFolder
+    sldrFilePath = sldrPath + subFolder + '/'
     sldrFileList = os.listdir(sldrFilePath)
     for fname in sldrFileList:
         sldrLangCode = fname[0:3]
         if sldrLangCode[2:3] == "_" or sldrLangCode[2:3] == "." or sldrLangCode[2:3] == "-":
             sldrLangCode = fname[0:2]
         if langCode == sldrLangCode:  # found it
-            return fname
+            return sldrFilePath + fname
     return None
 
 
-def processOneFile(filePlusPath, outputPath, sldrPath, langCode):
+def processOneFile(filePlusPath, outputPath, sldrPath, langCode, oldLdmlFilename):
+
+    if oldLdmlFilename is None:
+        ldml = Ldml(None)
+        ldml.uid = "unilex"
+    else:
+        ldml = Ldml(oldLdmlFilename)
+        if ldml.uid != "unilex":
+            print("")
+            print("--- SLDR file '" + oldLdmlFilename + "' is not based on Unilex data")
+            return
+
     unilexSet = UnilexSet()
     unilexSet.openSet(filePlusPath)
 
@@ -153,9 +165,6 @@ def processOneFile(filePlusPath, outputPath, sldrPath, langCode):
     print(unilexSet.exemplars.index)
     print(unilexSet.exemplars.punctuation)
     print(unilexSet.exemplars.script)
-
-    ldml = Ldml(None)
-    ldml.uid = "unilex"
 
     for (ldmlType, newValue) in\
                     (('', unilexSet.exemplars.main),
@@ -189,14 +198,14 @@ def processOneFile(filePlusPath, outputPath, sldrPath, langCode):
     ldml.serialize_xml(ldmlOutFile.write)
 
 
-def processFiles(inputPath, outputPath, sldrPath, filterLangCode = ''):
+def processFiles(inputPath, outputPath, sldrPath, filterLangCode = '', rerun = False):
     import sys
     if sys.maxunicode == 0x10FFFF:
         print('Python built with UCS4 (wide unicode) support')
     else:
         print('Python built with UCS2 (narrow unicode) support')
 
-    max = 10
+    max = 20
     count = 0
     filelist = os.listdir(inputPath)
     if inputPath[:-1] != '/':
@@ -214,13 +223,13 @@ def processFiles(inputPath, outputPath, sldrPath, filterLangCode = ''):
 
             if filterLangCode is None or filterLangCode == '' or langCode == filterLangCode:
                 existingLdml = sldrFileFor(langCode, sldrPath)
-                if existingLdml is None:
+                if rerun or existingLdml is None:
                     try:
                         print("")
                         print("-----------")
                         print("Processing: " + filename)
                         filePlusPath = inputPath + filename
-                        processOneFile(filePlusPath, outputPath, sldrPath, langCode)
+                        processOneFile(filePlusPath, outputPath, sldrPath, langCode, existingLdml)
                     except Exception as err:
                         print("ERROR: " + str(err))
                         print(type(err))
@@ -248,7 +257,8 @@ if __name__ == '__main__':
     parser.add_argument('-l','--lang', help="language ID to process")
     parser.add_argument('-i', '--input', default="./unilex/data/frequency", help="input path")
     parser.add_argument('-o', '--output', default="./temp_output")
+    parser.add_argument('-r', '--rerun', default=False)
     parser.add_argument('-s', '--sldr', default="./sldr_data/sldr", help="Existing SLDR data files")
     args = parser.parse_args()
 
-    processFiles(args.input, args.output, args.sldr, args.lang)
+    processFiles(args.input, args.output, args.sldr, args.lang, args.rerun)
