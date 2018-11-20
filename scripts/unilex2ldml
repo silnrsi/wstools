@@ -192,7 +192,10 @@ def processOneFile(filePlusPath, outputPath, sldrPath, langCode, oldLdmlFilename
     genTimeNode = ldml.ensure_path('identity/generation')[0]
     genTimeNode.set('date', genTimeValue)
 
-    ldmlOutputFilename = outputPath + "/" + langCode + "_" + scriptCode + ".xml"
+    if scriptCode is None or scriptCode == '':
+        ldmlOutputFilename = outputPath + "/" + langCode + ".xml"
+    else:
+        ldmlOutputFilename = outputPath + "/" + langCode + "_" + scriptCode + ".xml"
     ldmlOutFile = codecs.open(ldmlOutputFilename, 'w', encoding="utf-8")
     ldml.normalise()
     ldml.serialize_xml(ldmlOutFile.write)

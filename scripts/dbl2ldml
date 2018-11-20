@@ -331,11 +331,11 @@ def processLds(ldml, ldsFilename, ducetDict):
     ldsConfig = RawConfigParser()
 
     if isinstance(ldsFilename, str):  # Python 2 uses basestring
-        ldsFile = codecs.open(ldsFilename, 'r', "utf-8")
+        ldsFile = codecs.open(ldsFilename, 'r', encoding="utf-8")
         # The RawConfigParser chokes on the BOM.
         #try:
         ldsFile = _removeBom(ldsFile, ldsFilename, "utf-8")
-        ldsConfig.read(ldsFilename, "utf-8")
+        ldsConfig.read(ldsFilename, encoding="utf-8")
         #except:
         #    # Try again with latin1 encoding.
         #    ldsFile = codecs.open(ldsFilename, mode='r', encoding="latin_1")
@@ -839,7 +839,7 @@ def _debugStr(item):
 
 
 
-def downloadFromDbl(mainPath, downloadPath, langCode = ''):
+def downloadFromDbl(downloadPath, langCode = ''):
     dblreader = DBLReader()
 
     ###code = dblreader.testAccess()
@@ -860,7 +860,7 @@ def downloadFromDbl(mainPath, downloadPath, langCode = ''):
         return True
 
 
-def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
+def processOneProject(filename, outputPath, ducetDict, langCode):
     fullFilename = filename # should already include path
     dblObj = DBL()
     dblObj.open_project(fullFilename)
@@ -1059,7 +1059,10 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
         idNode = ldml.find('identity')
         idNode.remove(versionNode)
 
-    ldmlOutputFilename = outputPath + "/" + langCode + "_" + scriptCode + ".xml"
+    if scriptCode is None or scriptCode == '':
+        ldmlOutputFilename = outputPath + "/" + langCode + ".xml"
+    else:
+        ldmlOutputFilename = outputPath + "/" + langCode + "_" + scriptCode + ".xml"
     ldmlOutFile = codecs.open(ldmlOutputFilename, 'w', encoding="utf-8")
     ldml.normalise()
     ldml.serialize_xml(ldmlOutFile.write)
@@ -1067,7 +1070,7 @@ def processOneProject(mainPath, outputPath, ducetDict, filename, langCode):
 # end of processOneProject
 
 
-def processProjects(dblPath, inputPath, outputPath, filterLangCode = '', filterZipFile = ''):
+def processProjects(inputPath, outputPath, filterLangCode = '', filterZipFile = ''):
     import sys
     if sys.maxunicode == 0x10FFFF:
         print('Python built with UCS4 (wide unicode) support')
@@ -1095,8 +1098,8 @@ def processProjects(dblPath, inputPath, outputPath, filterLangCode = '', filterZ
             if langCode[2:3] == "_":
                 langCode = basename[0:2]
 
-            #if langCode < "na":   # TEMPORARY
-            #    continue
+            if langCode < "bco":   # TEMPORARY
+                continue
 
             if filterLangCode == '' or langCode == filterLangCode:
                 try:
@@ -1104,7 +1107,7 @@ def processProjects(dblPath, inputPath, outputPath, filterLangCode = '', filterZ
                     print("-----------")
                     print("Processing: " + filename)
                     filePlusPath = inputPath + filename
-                    processOneProject(dblPath, outputPath, ducetDict, filePlusPath, langCode)
+                    processOneProject(filePlusPath, outputPath, ducetDict, langCode)
                 except Exception as err:
                     print("ERROR: " + str(err))
                     print(type(err))
@@ -1126,13 +1129,13 @@ def processProjects(dblPath, inputPath, outputPath, filterLangCode = '', filterZ
 def downloadAndProcess(updateDblSource, zipFile, dblPath, inputPath, outputPath):
 
     if updateDblSource:
-        ok = downloadFromDbl(dblPath, inputPath)
+        ok = downloadFromDbl(inputPath)
     else:
         ok = True
     if ok:
         langCode = ''
-        #langCode = 'aeb'  # debugging
-        processProjects(dblPath, inputPath, outputPath, langCode, zipFile)
+        #langCode = 'bel'  # debugging
+        processProjects(inputPath, outputPath, langCode, zipFile)
 
 # end of downloadAndProcess
 
