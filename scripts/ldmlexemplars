@@ -94,6 +94,12 @@ def main():
         ldml_file.write('graphemes   {}\n'.format(dbl.exemplars.graphemes))
         ldml_file.write('frequency   {}\n'.format(dbl.exemplars.frequency))
         ldml_file.write('script      {}\n'.format(dbl.exemplars.script))
+        raw_clusters = dbl.exemplars.raw_clusters
+        both = list()
+        for exemplar, count in raw_clusters.most_common():
+            both.append('{}={}'.format(exemplar.text, count))
+        spreadsheet = ' '.join(both)
+        ldml_file.write('object      {}\n'.format(spreadsheet))
 
 
 if __name__ == '__main__':
