@@ -77,9 +77,10 @@ class DBLAuthV1(requests.auth.AuthBase):
         import hashlib
 
         mac = hmac.new(self.api_token, None, hashlib.sha1)
-        mac.update(self.signing_string_from_request(request))
+        mac.update(bytes(self.signing_string_from_request(request), 'utf-8)'))
         mac.update(self.private_key.lower())
-        return 'version=v1,token=%s,signature=%s' % (self.api_token, mac.hexdigest().lower())
+        tokenStr = codecs.decode(self.api_token, 'utf-8')
+        return 'version=v1,token=%s,signature=%s' % (tokenStr, mac.hexdigest().lower())
 
     def signing_string_from_request(self, request):
         dbl_header_prefix = 'x-dbl-'
@@ -113,6 +114,7 @@ class DBLAuthV1(requests.auth.AuthBase):
             else:
                 buf += "%s\n" % val
         return buf
+
 
 # end of class DBLAuthV1
 
@@ -237,7 +239,7 @@ class DBLReader(object):
 
                     if downloadZip:
                         response = requests.get(
-                            'https://thedigitalbiblelibrary.org/ap i/entries/' + entryId + "/revisions/latest/licenses/"
+                            'https://thedigitalbiblelibrary.org/api/entries/' + entryId + "/revisions/latest/licenses/"
                                         + licenseId + ".zip",
                             auth=self.auth, headers=self._jsonHeaders())
                         if response.status_code == 200:
@@ -1139,9 +1141,17 @@ def processProjects(inputPath, outputPath, filterLangCode = '', filterZipFile = 
 def downloadAndProcess(updateDblSource, zipFile, dblPath, inputPath, outputPath):
 
     if updateDblSource:
-        ok = downloadFromDbl(inputPath)
+        try:
+            ok = downloadFromDbl(inputPath)
+        except Exception as err:
+            ok = False
+            print("ERROR: " + str(err))
+            print(type(err))
+            print(err.args)
+
     else:
         ok = True
+
     if ok:
         langCode = ''
         #langCode = 'aai'  # debugging
