@@ -79,7 +79,7 @@ class DBLAuthV1(requests.auth.AuthBase):
         mac = hmac.new(self.api_token, None, hashlib.sha1)
         mac.update(bytes(self.signing_string_from_request(request), 'utf-8)'))
         mac.update(self.private_key.lower())
-        tokenStr = codecs.decode(self.api_token, 'utf-8')
+        tokenStr = self.api_token.decode('utf-8')
         return 'version=v1,token=%s,signature=%s' % (tokenStr, mac.hexdigest().lower())
 
     def signing_string_from_request(self, request):
