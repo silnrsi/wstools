@@ -1015,7 +1015,8 @@ def processOneProject(filename, outputPath, ducetDict, langCode):
     scriptCode = dblObj.exemplars.script
 
     scriptElem = ldml.ensure_path('identity/script')[0]
-    scriptElem.text = scriptCode
+    #scriptElem.text = scriptCode
+    scriptElem.attrib['type'] = scriptCode
 
     if ssfFilename is not None and os.path.isfile(ssfFilename):
         try:
@@ -1110,8 +1111,7 @@ def processProjects(inputPath, outputPath, filterLangCode = '', filterZipFile = 
             if langCode[2:3] == "_":
                 langCode = basename[0:2]
 
-            #if langCode < "bco":   # TEMPORARY
-            #    continue
+            ###if langCode < "ctp": continue   # TEMPORARY ------------------
 
             if filterLangCode == '' or langCode == filterLangCode:
                 try:
