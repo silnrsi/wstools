@@ -23,6 +23,13 @@ try:
     import dblauthkey
 except ImportError:
     sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+    import dblauthkey
+
+try:
+    import iso639
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+    import iso639
 
 ##libPath = "../../../sldr/python/lib/"
 libPath = os.path.join("..", "..", "..", "palaso-python", "lib")
@@ -1015,8 +1022,11 @@ def processOneProject(filename, outputPath, ducetDict, langCode):
     scriptCode = dblObj.exemplars.script
 
     scriptElem = ldml.ensure_path('identity/script')[0]
-    #scriptElem.text = scriptCode
     scriptElem.attrib['type'] = scriptCode
+    langElem = ldml.ensure_path('identity/language')[0]
+    isoCode = iso639.iso639_3_2(langCode)
+    isoCode = isoCode if isoCode else langCode
+    langElem.attrib['type'] = isoCode
 
     if ssfFilename is not None and os.path.isfile(ssfFilename):
         try:
