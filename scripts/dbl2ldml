@@ -1177,10 +1177,10 @@ if __name__ == '__main__':
     parser.add_argument('-z','--zipfile')
     parser.add_argument('-l','--ldml',help='input LDML base file')
     parser.add_argument('-s','--ssf',help='input SSF file')
-    parser.add_argument('-d','--lds',default="C:/WS_Tech/DBL2LDML/testdata/zzz/zzz.lds",help='input LDS file')
-    parser.add_argument('-o','--outfile',default="C:/WS_Tech/DBL2LDML/testdata/zzz/zzz_Latn_out.xml",help='output LDML file')
+    parser.add_argument('-d','--lds',default="C:/ChordTeam/DBL2LDML/testdata/zzz/zzz.lds",help='input LDS file')
+    parser.add_argument('-o','--outfile',default="C:/ChordTeam/DBL2LDML/testdata/zzz/zzz_Latn_out.xml",help='output LDML file')
     parser.add_argument('-O','--outpath',default="./temp_output",help="Directory to store generated ldml files in if not -l")
-    parser.add_argument('-P','--dblpath',default="C:/WS_Tech/DBL2LDML",help="Path to local zips of DBL")
+    parser.add_argument('-P','--dblpath',default="C:/ChordTeam/DBL2LDML",help="Path to local zips of DBL")
     parser.add_argument('-T','--tempdownload',default="./temp_download",help="Where to download a DBL zip file to, or where to find them")
 
     args = parser.parse_args()
@@ -1195,10 +1195,10 @@ if __name__ == '__main__':
         ldsFile = args.lds
         outFile = args.outfile
 
-        #ldmlFile = "C:/WS_Tech/DBL2LDML/testdata/zzz/zzz.xml"
-        #ssfFile = "C:/WS_Tech/DBL2LDML/testdata/zzz/zzz.ssf"
-        #ldsFile = "C:/WS_Tech/DBL2LDML/testdata/zzz/zzz.lds"
-        #outFile = "C:/WS_Tech/DBL2LDML/testdata/zzz/zzz_Latn_out.xml"
+        #ldmlFile = "C:/ChordTeam/DBL2LDML/testdata/zzz/zzz.xml"
+        #ssfFile = "C:/ChordTeam/DBL2LDML/testdata/zzz/zzz.ssf"
+        #ldsFile = "C:/ChordTeam/DBL2LDML/testdata/zzz/zzz.lds"
+        #outFile = "C:/ChordTeam/DBL2LDML/testdata/zzz/zzz_Latn_out.xml"
 
         if ldmlFile:
             ldml = Ldml(ldmlFile)

@@ -1,0 +1,400 @@
+#!/usr/bin/python
+
+# Generate a CSS file with appropriate fonts and styles for each LDML in the SLDR.
+
+import sys
+import collections
+import codecs
+import copy
+import os
+import unicodedata
+import xml.etree.cElementTree as et
+
+# For calling DBLAuthV1 class:
+# The requests module may need to be installed separately; it does not appear to be part of the standard Python.
+import requests
+from datetime import datetime
+from wsgiref.handlers import format_date_time
+from time import mktime
+from sortedcontainers import SortedDict
+
+libPath = os.path.join("..", "..", "..", "palaso-python", "lib")
+sys.path.append(os.path.abspath(os.path.dirname(__file__) + libPath))
+import palaso.sldr.UnicodeSets
+
+
+try:
+    from dbl import DBL
+except ImportError:
+    relpath = os.path.join(os.path.dirname(__file__), '..', 'lib', 'wstools')
+    sys.path.append(sys.path.append(os.path.abspath(relpath)))
+    from dbl import DBL
+
+import json
+
+from configparser import RawConfigParser
+
+#ldmlFilePath = "../../sldr/sldr/"   # where to find the files to process
+#ldmlFilePath = "C:\\WS_Tech\\DBL2LDML\\sldr\\sldr\\"
+ldmlFilePath = "C:\\ChordTeam\\DBL2LDML\\temp_output\\"
+
+langTagsFileName = "langTags.txt"
+
+ldmlFilePaths = {
+    "C:\\ChordTeam\\DBL2LDML\\sldr_data\\sldr\\" : ("a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z"),
+    "C:\\ChordTeam\\DBL2LDML\\temp_output\\" : ("a", "b", "c", "d_f", "g_j", "k_l", "m", "n", "o_r", "s", "t_v", "w_z")
+}
+
+featureList = {
+    'capHstroke'    : 'cv28',
+    'uppereng'      : 'cv43',
+    'capNhook'      : 'cv44',
+    'openO'         : 'cv46',
+    'pHook'         : 'cv49',
+    'capYhook'      : 'cv68',
+    'vietDiac'      : 'cv75',
+    'caronAlt'      : 'cv77',
+    'mongCyrlE'     : 'cv80',
+    'cyrlShha'      : 'cv81',
+    'cyrlBreve'     : 'cv82',
+    'chinTone'      : 'cv90',
+    'strokeChar'    : 'ss04'
+}
+
+try:
+    from sldr.ldml import Ldml
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.dirname(__file__) + libPath))
+    from sldr.ldml import Ldml
+
+from sldr.collation import Collation, CollElement
+####from sldr.langtags import LangTag
+
+
+##import xml.etree.cElementTree as etree
+# lxml preserves comments, also handles namespaces better:
+from xml.etree import ElementTree as etree
+##from cStringIO import StringIO # Python 2.7
+from io import StringIO
+
+silns = {'sil' : "urn://www.sil.org/ldml/0.1" }
+
+
+def processOneFile(dataDict, xTagMap, langTag, langTagAlt, ldmlFileName):
+
+    if langTag == 'anv':
+        x = 3
+
+    (langTagToUse, langData, sldrTag) = findLangDictKey(langTag, langTagAlt, dataDict, xTagMap)
+
+    # Don't reinit data structure; we may be reprocssing with a second file that has less or different data in it.
+
+    if ldmlFileName is not None and os.path.exists(ldmlFileName):
+        ldml = Ldml(ldmlFileName, None)
+
+        langData["inSldr"] = 'X'
+        if langData["sldrTag"].find(' ' + sldrTag) == -1:
+            langData["sldrTag"] = langData["sldrTag"] + ' ' + sldrTag
+
+        mainChText = None
+        auxChText = ldml.find('characters/exemplarCharacters[@type="auxiliary"]')
+        indexChText = ldml.find('characters/exemplarCharacters[@type="index"]')
+        punctChText = ldml.find('characters/exemplarCharacters[@type="punctuation"]')
+
+        chElems = ldml.root.findall('characters/exemplarCharacters')
+        for chEl in chElems:
+            exemType = chEl.get('type')
+            if exemType is None:
+                #mainChText = chEl.text
+                if langData["exemplars"] == 'AUX-ONLY':
+                    langData["exemplars"] = 'main+aux'
+                else:
+                    langData["exemplars"] = 'main'
+            elif exemType == 'auxiliary':
+                #auxChText = chEl.text
+                if langData["exemplars"] == 'main':
+                    langData["exemplars"] = 'main+aux'
+                else:
+                    langData["exemplars"] = 'AUX-ONLY'
+            elif exemType == "index":
+                #indexChText = chEl.text
+                langData["index"] = 'X'
+            elif exemType == "punctuation":
+                #punctChText = chEl.text
+                langData["punct"] = 'X'
+
+        fontNameText = None
+        fontSizeText = None
+        fontEl = ldml.find('special/sil:external-resources/sil:font')
+        if fontEl is not None and 'name' in fontEl.attrib:
+            #fontNameText = fontEl.attrib['name']
+            langData["font"] = 'X'
+        #if fontEl is not None and 'size' in fontEl.attrib:
+        #    fontSizeText = fontEl.attrib['size']  # a factor like 1.25
+
+        simple = False
+        cdata = False
+        collElems = ldml.root.findall('collations/collation')
+        for collEl in collElems:
+            collType = collEl.get('type')
+            if collType == "standard":
+                # have to call this method to get namespace to work:
+                collSpecSimple = ldml.find('collations/collation/special/sil:simple')
+                if collSpecSimple is not None:
+                    # this is a simple character list
+                    simple = True
+                collCr = collEl.find('cr')
+                if collCr is not None:
+                    collText = collCr.text
+                    if collText.find("<") > -1 or collText.find("&"):
+                        cdata = True
+        if simple:
+            langData["sort"] = 'tailoring+simple' if cdata else 'simple'
+        elif cdata:
+            langData["sort"] = 'tailoring'  # minimal or compressed spec, rather than a full list of chars
+        #else: leave as is
+
+        dirText = None
+        dirEl = ldml.find('layout/orientation/characterOrder')
+        if dirEl is not None:
+            #dirText = dirEl.text
+            langData["dir"] = 'X'
+
+        dataDict[langTagToUse] = langData
+
+        return dataDict
+
+# end of processOneFile
+
+
+def findLangDictKey(langTag, langTagAlt, dataDict, xTagMap):
+    if langTagAlt in dataDict:  # match longest first
+        return (langTagAlt, dataDict[langTagAlt], '')
+    elif langTag in dataDict:
+        return (langTag, dataDict[langTag], '')
+    elif langTag in xTagMap:
+        return (xTagMap[langTag], dataDict[xTagMap[langTag]], langTag)
+    else:
+        # Okay, we're going to have to dig to find the tag that matches.
+        #for (langTag2, langData2) in dataDict.items():
+        #    otherTags = langData2["otherTags"]
+
+        print('WARNING: no entry found for ' + langTag + '\n')
+        result = dict()
+        initLangData(result)
+        result["longTag"] = "NOT FOUND"
+        return (langTag, result, langTag)
+
+
+def processFiles(dataDict, xTagMap, filterLangCode = ''):
+    import sys
+    if sys.maxunicode == 0x10FFFF:
+        print('Python built with UCS4 (wide unicode) support')
+    else:
+        print('Python built with UCS2 (narrow unicode) support')
+
+    count = 0
+    max = 15000
+
+    filterDirMap = {'a': 'a', 'b':'b', 'c':'c', 'd':'d_f', 'e':'d_f', 'f':'d_f', 'g':'g_j', 'h':'g_j', 'i':'g_j'}
+    if filterLangCode is not None and filterLangCode != '':
+        filterFirstLetter = filterLangCode[0:1]
+
+    for path, subDirs in ldmlFilePaths.items():
+        for dir in subDirs:
+            if filterLangCode is not None and filterLangCode != '' and filterFirstLetter != dir and filterDirMap[filterFirstLetter] != dir:
+                continue  # this directory doesn't fit the filter
+
+            subDirPath = path + dir + "\\"
+
+            filelist = os.listdir(subDirPath)
+
+            for filename in filelist:
+                basename = os.path.basename(filename)
+                langCode = basename[0:3]
+                if langCode[2:3] == "_":
+                    langCode = basename[0:2]
+                elif langCode[2:3] == ".":
+                    langCode = basename[0:2]
+
+                #if langCode < "aeu":   # TEMPORARY
+                #    continue
+
+                if filterLangCode is None or filterLangCode == '' or langCode == filterLangCode:
+                    try:
+                        print("")
+                        print("-----------")
+                        print("Processing: " + filename)
+                        filePlusPath = subDirPath + filename
+                        langCodeAlt = filename[0:-4]  # strip of .xml
+                        langCodeAlt = langCodeAlt.replace('_', '-')
+
+                        dataDict = processOneFile(dataDict, xTagMap, langCode, langCodeAlt, filePlusPath)
+                    except Exception as err:
+                        print("ERROR: " + str(err))
+                        print(type(err))
+                        print(err.args)
+
+                    count = count + 1
+
+                if count > max: break
+            # end for filename in filelist
+
+            if count > max: break;
+        # end for files
+
+        if count > max: break
+    # end for paths
+
+# end of processFiles
+
+
+def initFromLangTags():
+    dataDict = SortedDict()
+    xTagMap = dict()  # extra tags
+
+    if 1+1 == 2:
+        with open(langTagsFileName) as f:
+            content = f.readlines()
+
+        for oneLine in content:
+            tags = oneLine.split('=')
+            mainTag = cleanTag(tags[0])
+            tagPieces = mainTag.split('-')
+            longTag = cleanTag(tags[-1])
+            otherTags = list()
+            regionCode = ''
+            for i in range(0,len(tags)):
+                tag = cleanTag(tags[i])
+                if tag != mainTag:
+                    otherTags.append(tag)
+                    if tagLangPiece(tag) != tagLangPiece(mainTag):
+                        xTagMap[tagLangPiece(tag)] = tagLangPiece(mainTag)
+
+                tagPieces = tag.split('-')
+                lastPiece = tagPieces[-1]
+                if regionCode == '':
+                    if len(tagPieces) > 1 and len(lastPiece) == 2:
+                        regionCode = tagPieces[-1]
+                    elif len(tagPieces) > 3 and len(tagPieces[2]) == 2:  # variant
+                        regionCode = tagPieces[2]
+
+            langData = dict()
+            langData = initLangData(langData)
+            langData["longTag"] = longTag
+            langData["otherTags"] = otherTags
+            langData["sldrTag"] = ''
+            langData["region"] = regionCode
+            dataDict[mainTag] = langData
+
+    #except:
+    #    print("\nWARNING: error in initializing from langTags.txt file \n")
+
+    return (dataDict, xTagMap)
+
+
+def cleanTag(rawTag):
+    result = rawTag.strip()
+    if result[0] == '*': result = result[1:]  # strip off *
+    return result
+
+
+def tagLangPiece(tag) :
+    """Return just the language part of the full lang tag."""
+    if len(tag) < 4:
+        return tag
+    elif tag[2] == '-':
+        return tag[0:2]
+    else:
+        return tag[0:3]
+
+
+def readSpreadsheet(dataDict, dataFilename):
+    """The spreadsheet is stored in a CSV-formatted file."""
+
+    try:
+        with open(dataFilename) as f:
+            content = f.readlines()
+
+        header = True;
+        for oneLine in content:
+            if header:
+                header = False   # skip header
+            else:
+                oneLine = oneLine.strip()
+                fields = oneLine.split(',')
+                langTag = fields[0]
+                langData = dict()
+                langData["longTag"] = fields[1]
+                langData["sldrTag"] = fields[2]
+                langData["region"] = fields[3]
+                langData["inSldr"] = fields[4]
+                langData["exemplars"] = fields[5]       # main, aux-only, main+aux
+                langData["index"] = fields[6]
+                langData["punct"] = fields[7]
+                langData["sort"] = fields[8]            # simple, tailoring, tailoring+simple
+                langData["font"] = fields[9]
+                langData["dir"] = fields[10]
+                dataDict[langTag] = langData
+    except:
+        print("\nWARNING: Original data not found for import\n")
+
+    return dataDict
+
+# end of readSpreadsheet
+
+
+def initLangData(langData):
+    """Make sure the data structure is fully fleshed out."""
+    if "longTag" not in langData: langData["longTag"] = ''
+    if "sldrTag" not in langData: langData["sldrTag"] = ''
+    if "region" not in langData: langData["region"] = ''
+    if "inSldr" not in langData: langData["inSldr"] = ''
+    if "exemplars" not in langData: langData["exemplars"] = ''
+    if "index" not in langData: langData["index"] = ''
+    if "punct" not in langData: langData["punct"] = ''
+    if "sort" not in langData: langData["sort"] = ''
+    if "font" not in langData: langData["font"] = ''
+    if "dir" not in langData: langData["dir"] = ''
+    return langData
+
+
+def outputSpreadsheet(dataDict, outFilename):
+    outf = open(outFilename, 'w')
+
+    outf.write("Short Tag,Long Tag,SLDR Tag,Region,In SLDR,Exemplars,Index,Punct,Collation,Font,Direction\n")
+    for langTag, langData in dataDict.items():
+        outStr = langTag + ',' + langData["longTag"] + ',' + langData["sldrTag"] + ',' + langData["region"]
+        outStr += ',' + langData["inSldr"] + ',' + langData["exemplars"] + ',' + langData["index"]
+        outStr += ',' + langData["punct"] + ',' + langData["sort"] + ',' + langData["font"] + ',' + langData["dir"] + '\n'
+        outf.write(outStr)
+
+    outf.close()
+
+# end of outputSpreadsheet
+
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i','--infile',default="C:/ChordTeam/DBL2LDML/temp_output/sldr_summary/sldrSummary - Prev.csv",help='input CSV to reprocess')
+    parser.add_argument('-o','--outfile',default="C:/ChordTeam/DBL2LDML/temp_output/sldr_summary/sldrSummary.csv",help='output CSV file')
+    parser.add_argument('-r','--reprocess',default="true",help="true to start with existing file, false to start over")
+
+    args = parser.parse_args()
+
+    outFilename = args.outfile
+    inFilename = args.infile
+
+    (dataDict, xTagMap) = initFromLangTags()
+
+    if args.reprocess:
+        dataDict = readSpreadsheet(dataDict, inFilename)
+
+    filterLangCode = ''
+    ###filterLangCode = 'aa'
+
+    processFiles(dataDict, xTagMap, filterLangCode);
+
+    outputSpreadsheet(dataDict, outFilename)
+

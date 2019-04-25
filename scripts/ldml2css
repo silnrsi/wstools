@@ -1,0 +1,396 @@
+#!/usr/bin/python
+
+# Generate a CSS file with appropriate fonts and styles for each LDML in the SLDR.
+
+import sys
+import collections
+import codecs
+import copy
+import os
+import unicodedata
+import xml.etree.cElementTree as et
+
+# For calling DBLAuthV1 class:
+# The requests module may need to be installed separately; it does not appear to be part of the standard Python.
+import requests
+from datetime import datetime
+from wsgiref.handlers import format_date_time
+from time import mktime
+from sortedcontainers import SortedDict
+
+libPath = os.path.join("..", "..", "..", "palaso-python", "lib")
+sys.path.append(os.path.abspath(os.path.dirname(__file__) + libPath))
+
+try:
+    import sldr.UnicodeSets
+except ImportError:
+    print(os.path.dirname(__file__))
+    relpath = os.path.join(os.path.dirname(__file__), '..', '..', 'sldr_data', 'python', 'lib')
+    sys.path.append(sys.path.append(os.path.abspath(relpath)))
+    import sldr.UnicodeSets
+
+# The authorization key is stored in a different file:
+try:
+    import dblauthkey
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
+try:
+    from dbl import DBL
+except ImportError:
+    relpath = os.path.join(os.path.dirname(__file__), '..', 'lib', 'wstools')
+    sys.path.append(sys.path.append(os.path.abspath(relpath)))
+    from dbl import DBL
+
+import json
+
+from configparser import RawConfigParser
+
+#ldmlFilePath = "../../sldr/sldr/"   # where to find the files to process
+#ldmlFilePath = "C:\\WS_Tech\\DBL2LDML\\sldr\\sldr\\"
+ldmlFilePath = "C:\\WS_Tech\\DBL2LDML\\temp_output\\"
+
+ldmlFilePaths = {
+    "C:\\WS_Tech\\DBL2LDML\\sldr\\sldr\\" : ("a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z"),
+    "C:\\WS_Tech\\DBL2LDML\\temp_output\\" : ("a", "b", "c", "d_f", "g_j", "k_l", "m", "n", "o_r", "s", "t_v", "w_z")
+}
+
+featureList = {
+    'capHstroke'    : 'cv28',
+    'uppereng'      : 'cv43',
+    'capNhook'      : 'cv44',
+    'openO'         : 'cv46',
+    'pHook'         : 'cv49',
+    'capYhook'      : 'cv68',
+    'vietDiac'      : 'cv75',
+    'caronAlt'      : 'cv77',
+    'mongCyrlE'     : 'cv80',
+    'cyrlShha'      : 'cv81',
+    'cyrlBreve'     : 'cv82',
+    'chinTone'      : 'cv90',
+    'strokeChar'    : 'ss04'
+}
+
+try:
+    from sldr.ldml import Ldml
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.dirname(__file__) + libPath))
+    from sldr.ldml import Ldml
+
+from sldr.collation import Collation, CollElement
+from sldr.langtags import LangTag
+
+
+##import xml.etree.cElementTree as etree
+# lxml preserves comments, also handles namespaces better:
+from xml.etree import ElementTree as etree
+##from cStringIO import StringIO # Python 2.7
+from io import StringIO
+
+silns = {'sil' : "urn://www.sil.org/ldml/0.1" }
+
+
+def processOneFile(langCode, ldmlFilename, results):
+
+    if langCode == 'anv':
+        x = 3
+
+    fullFilename = ldmlFilename # should already include path
+
+    thisResult = []
+
+    if ldmlFilename is not None and os.path.exists(ldmlFilename):
+        ldml = Ldml(ldmlFilename, None)
+
+        mainChText = None
+        auxChText = ldml.find('characters/exemplarCharacters[@type="auxiliary"]')
+        indexChText = ldml.find('characters/exemplarCharacters[@type="index"]')
+        punctChText = ldml.find('characters/exemplarCharacters[@type="punctuation"]')
+
+        chElems = ldml.root.findall('characters/exemplarCharacters')
+        for chEl in chElems:
+            exemType = chEl.get('type')
+            if exemType is None:
+                mainChText = chEl.text
+            elif exemType == 'auxiliary':
+                auxChText = chEl.text
+            elif exemType == "index":
+                indexChText = chEl.text
+            elif exemType == "punctuation":
+                punctChText = chEl.text
+
+        fontNameText = None
+        fontSizeText = None
+        fontEl = ldml.find('special/sil:external-resources/sil:font')
+        if fontEl is not None and 'name' in fontEl.attrib:
+            fontNameText = fontEl.attrib['name']
+        if fontEl is not None and 'size' in fontEl.attrib:
+            fontSizeText = fontEl.attrib['size']  # a factor like 1.25
+
+        dirText = None
+        dirEl = ldml.find('layout/orientation/characterOrder')
+        if dirEl is not None:
+            dirText = dirEl.text
+        else:
+            dirText = 'left-to-right'
+
+        featDict = {}
+        for key,cssAttr in featureList.items():
+            featDict[key] = False
+
+        fontFeatures = ""
+        charsToProcess = (mainChText, auxChText, indexChText, punctChText)
+        for charList in charsToProcess:
+            if charList is not None:
+                usets = sldr.UnicodeSets.parse(charList)
+                for uset in usets:
+                    for cstr in uset:
+                        for c in cstr:
+                            # Test for an interesting character.
+                            usv = ord(c)
+                            if usv == 0x014A or usv == 0x014B:
+                                # uppercase eng:
+                                featDict['uppereng'] = True
+                            if usv == 0x0180 or usv == 0x0111 or usv == 0x01E5:
+                                # b, d, g w/ stroke
+                                featDict['strokeChar'] = True
+                            if usv == 0x0254 or usv == 0x0186 or usv == 0x1D10 or usv == 0x1D53 or usv == 0x1D97:
+                                # open-o alternate
+                                featDict['openO'] = True
+                            if usv == 0x019D:
+                                # capital N-left-hook alternate
+                                featDict['capNhook'] = True
+                            if usv == 0x01A5:
+                                # small p-hook alternate
+                                featDict['pHook'] = True
+                            if usv == 0x01B3:
+                                # capital y-hook alternate
+                                featDict['capYhook'] = True
+                            if usv == 0x0165 or usv == 0x010F or usv == 0x013E or usv == 0x013D:
+                                # non-European caron alternates
+                                featDict['caronAlt'] = True
+                            vietDiacs = (0x1EA4, 0x1EA5, 0x1EA6, 0x1EA7, 0x1EA8, 0x1EA9, 0x1EAA, 0x1EAB, 0x1EAE, 0x1EAF,
+                                         0x1EB0, 0x1EB1, 0x1EB2, 0x1EB3, 0x1EB4, 0x1EB5, 0x1EBE, 0x1EBF, 0x1EC0, 0x1EC1,
+                                         0x1EC2, 0x1EC3, 0x1EC4, 0x1EC5, 0x1ED0, 0x1ED1, 0x1ED2, 0x1ED3, 0x1ED4, 0x1ED5,
+                                         0x1ED6, 0x1ED7)
+                            if usv in vietDiacs:
+                                # Vietnamese diacritics
+                                featDict['vietDiac'] = True
+                            if usv == 0x02CB or usv == 0x02C8 or usv == 0x02C9 or usv == 0x02CA:
+                                # Chinantec tones
+                                featDict['chinTone'] = True
+                            if usv == 0x042D or usv == 0x044D:
+                                # Mongolian Cyrillic E
+                                featDict['mongCyrlE'] = True
+                            if usv == 0x0306:
+                                # Cyrillic-style breve
+                                featDict['cyrlBreve'] = True
+                            if usv == 0x0126:
+                                # Capital H-stroke alternate
+                                featDict['capHstroke'] = True
+                            if usv == 0x04BB:
+                                # Cyrillic shha alternate
+                                featDict['cyrlShha']
+
+                        # end for c
+                    # end for cstr
+                # end for uset
+            # end f
+        # end for charList
+
+        if langCode in results:
+            # Add these results to those for a different WS.
+            (featDictPrev, fontNamePrev, fontSizePrev, fontFeaturesPrev, dirTextPrev) = results[langCode]
+
+            for key,value in featDict.items():
+                featDict[key] = (featDict[key] or featDictPrev[key])
+
+            if fontNamePrev is not None and len(fontNamePrev) > 0 and fontNameText is not None:
+                fontNameOut = fontNamePrev
+                fontNameOut.add(fontNameText)
+            elif fontNameText is not None:
+                fontNameOut = set()
+                fontNameOut.add(fontNameText)
+            else:
+                fontNameOut = fontNamePrev
+
+            if fontSizeText is not None:
+                fontSizeOut = textForFontSize(fontSizeText)
+            else:
+                fontSizeOut = fontSizePrev
+
+            if dirTextPrev != dirText:
+                dirText = "UNKNOWN"
+
+        elif fontNameText is not None:
+            fontNameOut = set()
+            fontNameOut.add(fontNameText)
+            fontSizeOut = textForFontSize(fontSizeText)
+
+        else:
+            fontNameOut = None
+            fontSizeOut = None
+
+        results[langCode] = (featDict, fontNameOut, fontSizeOut, fontFeatures, dirText)
+
+        temp = results[langCode]
+
+        return results
+
+# end of processOneFile
+
+def textForFontSize(textValue):
+    result = "medium"
+    if textValue:
+        floatValue = float(textValue)
+        if floatValue > 1.4:  # say, 20 points instead of 14
+            result = "large"
+    return result
+
+
+def anyFeatureTrue(featDict):
+    """Were any of the special characters that trigger features found in the feature list?"""
+    for key,value in featDict.items():
+        if value: return True
+    return False
+
+
+def outputResults(results, outputFile):
+
+    outf = open(outputFile, 'w')
+
+    for (langCode, oneLangResult) in results.items():
+        (featDict, fontNames, fontSize, fontFeatures, direction) = oneLangResult
+        if anyFeatureTrue(featDict) or fontNames is not None or fontFeatures != "":
+            # Output this language
+
+            outString = ':lang(' + langCode + ')  {\n    font-family: '
+            if fontNames is None or len(fontNames) == 0 or fontNames == '':
+                outString += '\"Times New Roman\", \"Charis SIL\", serif;'
+            else:
+                for fName in fontNames:
+                    outString += '\"' + fName + '\", '
+                outString += 'serif;'
+
+            if fontSize is None or fontSize == '':
+                outString += '\n    font-size: medium;'
+            else:
+                outString += '\n    font-size: ' + fontSize + ';'
+
+            if anyFeatureTrue(featDict):
+                outString += '\n    font-feature-settings: '
+                sep = ''
+                for key, value in featDict.items():
+                    if value:
+                        outString += sep + '\"' + featureList[key] + '\" VALUE'
+                        sep = ', '
+                outString += ';'
+
+            if direction == "right-to-left":
+                outString += '\n    direction: \"rtl\";'
+            elif direction == "UNKNOWN":
+                outString += '\n    direction: \"UNKNOWN\";'
+
+            outString += "\n    }\n"
+
+            outf.write(outString)
+
+        # end if
+    # end for langCode
+
+    outf.close()
+
+# end of outputResults
+
+
+def processFiles(outputFile, filterLangCode = ''):
+    import sys
+    if sys.maxunicode == 0x10FFFF:
+        print('Python built with UCS4 (wide unicode) support')
+    else:
+        print('Python built with UCS2 (narrow unicode) support')
+
+    results = SortedDict()
+
+    count = 0
+    max = 15000
+
+    filterDirMap = {'a': 'a', 'b':'b', 'c':'c', 'd':'d_f', 'e':'d_f', 'f':'d_f', 'g':'g_j', 'h':'g_j', 'i':'g_j'}
+    if filterLangCode is not None and filterLangCode != '':
+        filterFirstLetter = filterLangCode[0:1]
+
+    for path, subDirs in ldmlFilePaths.items():
+        for dir in subDirs:
+            if filterLangCode is not None and filterLangCode != '' and filterFirstLetter != dir and filterDirMap[filterFirstLetter] != dir:
+                continue  # this directory doesn't fit the filter
+
+            subDirPath = path + dir + "\\"
+
+            filelist = os.listdir(subDirPath)
+
+            for filename in filelist:
+                basename = os.path.basename(filename)
+                langCode = basename[0:3]
+                if langCode[2:3] == "_":
+                    langCode = basename[0:2]
+                elif langCode[2:3] == ".":
+                    langCode = basename[0:2]
+
+                #if langCode < "bk":   # TEMPORARY
+                #    continue
+
+                if filterLangCode is None or filterLangCode == '' or langCode == filterLangCode:
+                    try:
+                        print("")
+                        print("-----------")
+                        print("Processing: " + filename)
+                        filePlusPath = subDirPath + filename
+                        results = processOneFile(langCode, filePlusPath, results)
+                    except Exception as err:
+                        print("ERROR: " + str(err))
+                        print(type(err))
+                        print(err.args)
+
+                    count = count + 1
+
+                if count > max: break
+
+            # end for filename in filelist
+
+            if count > max: break;
+
+        # end for files
+
+        if count > max: break
+
+    # end for paths
+
+    outputResults(results, outputFile)
+
+# end of processFiles
+
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+#    parser.add_argument('-D','--dbl', default='true')  # values are 'false', 'true', 'update'
+#    parser.add_argument('-z','--zipfile')
+    parser.add_argument('-l','--ldml',help='language tag to process')
+#    parser.add_argument('-s','--ssf',help='input SSF file')
+#    parser.add_argument('-d','--lds',default="C:/ChordTeam/DBL2LDML/testdata/zzz/zzz.lds",help='input LDS file')
+    parser.add_argument('-o','--outfile',default="C:/ChordTeam/DBL2LDML/temp_output/ldml.css",help='output CSS file')
+#    parser.add_argument('-O','--outpath',default="./temp_output",help="Directory to store generated ldml files in if not -l")
+#    parser.add_argument('-P','--dblpath',default="C:/ChordTeam/DBL2LDML",help="Path to local zips of DBL")
+#    parser.add_argument('-T','--tempdownload',default="./temp_download",help="Where to download a DBL zip file to, or where to find them")
+
+    args = parser.parse_args()
+
+    langTag = args.ldml
+    outFile = args.outfile
+
+    langTag = "boz"  # debugging
+    if langTag != None:
+        outFile = outFile.replace('.css', '_' + langTag + '.css')
+
+    processFiles(outFile, langTag)
+
