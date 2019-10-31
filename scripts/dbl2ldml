@@ -47,15 +47,18 @@ import json
 from configparser import RawConfigParser
 
 try:
-    from sldr.ldml import Ldml
+    from palaso.sldr.ldml import Ldml
 except ImportError:
     sys.path.append(os.path.abspath(os.path.dirname(__file__) + libPath))
-    from sldr.ldml import Ldml
+    from palaso.sldr.ldml import Ldml
 
-from sldr.collation import Collation, CollElement
+from palaso.sldr.collation import Collation, CollElement
 ###from sldr.langtags import LangTag
 from langtags import LangTag
-import sldr.ducet as ducet
+try:
+    import palaso.sldr.ducet as ducet
+except:
+    print("ducet not imported")
 
 
 ##import xml.etree.cElementTree as etree
@@ -1121,7 +1124,7 @@ def processProjects(inputPath, outputPath, filterLangCode = '', filterZipFile = 
             if langCode[2:3] == "_":
                 langCode = basename[0:2]
 
-            ###if langCode < "ctp": continue   # TEMPORARY ------------------
+            #if langCode != "anv": continue   # TEMPORARY ------------------
 
             if filterLangCode == '' or langCode == filterLangCode:
                 try:
@@ -1208,7 +1211,7 @@ if __name__ == '__main__':
         if ssfFile:
             processSsf(ldml, ssfFile)
         if ldsFile:
-            import ducet
+            #import ducet
             import collation
             ducetDict = ducet.readDucet()
             processLds(ldml, ldsFile, ducetDict)
