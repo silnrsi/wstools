@@ -1,0 +1,68 @@
+#!/usr/bin/python3
+
+import sys, os
+
+try:
+    import dbl
+except ImportError:
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib', 'wstools'))
+    import dbl
+
+from palaso.sldr.ldml_exemplars import Exemplars
+import argparse
+import multiprocessing, logging
+
+def process(infname, lang, outdir="."):
+    logging.debug("Processing: {}".format(infname))
+    dblObj = dbl.DBL(infname)
+    exemplars = Exemplars()
+    exemplars.frequent = 0.0
+    for t in dblObj.analyze_text():
+        exemplars.process(t)
+    dblObj.close_project()
+    exemplars.analyze()
+    
+    path = os.path.join(outdir, lang[0])
+    if not os.path.exists(path):
+        os.makedirs(path)
+    with open(os.path.join(path, lang.replace("-","_")+".tsv"), "w") as outf:
+        outf.write("cluster\tcount\n")
+        for k, v in sorted(exemplars.clusters.items(), key=lambda a: (-a[1], a[0])):
+            outf.write("{}\t{}\n".format(k, v))
+
+parser = argparse.ArgumentParser()
+parser.add_argument('inputdir',help='Input directory containing project zips')
+parser.add_argument('-o','--outdir',help='Output directory for generated files')
+parser.add_argument('-l','--loglevel',help='Set logging level')
+parser.add_argument('-L','--lang',help='Langtag to process')
+parser.add_argument('-d','--dbl',action='store_true',help='Update DBL into inputdir')
+parser.add_argument('-j','--jobs',type=int,help='number of parallel jobs, default 0 = num processors')
+parser.add_argument('--listlangs',action='store_true',help='list all language codes available')
+parser.add_argument('-u','--update',action='store_true',help='only pull new dbl files, implies -d')
+args = parser.parse_args()
+
+if args.loglevel:
+    logging.basicConfig(stream=sys.stdout, level=args.loglevel.upper())
+
+if args.dbl or args.update:
+    dreader = dbl.DBLReader()
+    dreader.download(args.inputdir, lang=args.lang, update=args.update)
+
+def doit(a):
+    process(a[0], a[1], outdir=args.outdir)
+    return True
+
+if args.listlangs:
+    dreader = dbl.DBLReader()
+    entries = dreader.getEntries()
+    for (entryId, entryInfo) in entries.items():
+        (entryLangCode, entryAccessType) = entryInfo
+        print("{} -> {}".format(entryLangCode, entryId))
+else:
+    allfiles = list(dbl.process_projects(args.inputdir, args.lang))
+    if args.jobs == 1:
+        for a in allfiles:
+            doit(a)
+    else:
+        p = multiprocessing.Pool(processes=args.jobs)
+        p.imap_unordered(doit, allfiles)

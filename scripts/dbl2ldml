@@ -36,11 +36,11 @@ libPath = os.path.join("..", "..", "..", "palaso-python", "lib")
 sys.path.append(os.path.abspath(os.path.dirname(__file__) + libPath))
 
 try:
-    from dbl import DBL
+    from olddbl import DBL
 except ImportError:
     relpath = os.path.join(os.path.dirname(__file__), '..', 'lib', 'wstools')
     sys.path.append(sys.path.append(os.path.abspath(relpath)))
-    from dbl import DBL
+    from olddbl import DBL
 
 import json
 

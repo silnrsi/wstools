@@ -27,10 +27,14 @@
 import os
 import os.path
 import sys
+import requests, hmac, hashlib, json
 # import codecs
-import zipfile
+import zipfile, logging
 import xml.etree.ElementTree as ET
 from shutil import copyfile
+from datetime import datetime
+from wsgiref.handlers import format_date_time
+from time import mktime
 
 try:
     from sldr.ldml_exemplars import Exemplars
@@ -40,26 +44,249 @@ except ImportError:
     #sys.path.insert(-1, newDir)
     from sldr.ldml_exemplars import Exemplars
 
+def process_projects(indir, filterLangCode=None):
+    for filename in os.listdir(indir):
+        if filename.endswith('.zip'):   # and os.path.isfile(filename)
+            basename = os.path.basename(filename)
+            i = basename.find("_")
+            if i < 0:
+                continue
+            langCode = basename[0:i]
 
+            if filterLangCode is not None and langCode != filterLangCode \
+                    and not langCode.startswith(filterLangCode+"-"):
+                continue
+            yield (os.path.join(indir, filename), langCode)
+
+def getdblkeys():
+    try:
+        import keyring
+    except ImportError:
+        pass
+    else:
+        key1 = keyring.get_password("DBL", "key1")
+        key2 = keyring.get_password("DBL", "key2")
+        if key1 is not None and key2 is not None:
+            return (key1, key2)
+
+    try:
+        import dblauthkey
+    except ImportError:
+        pass
+    else:
+        return dblauthkey.authkey()
+
+    try:
+        import configparser
+        import appdirs
+    except ImportError:
+        pass
+    else:
+        d = appdirs.user_config_dir("DBL", "SIL")
+        cfile = os.path.join(d, "authkey.ini")
+        if os.path.exists(cfile):
+            config = configparser.ConfigParser()
+            config.read([cfile])
+            key1 = config.get("keys", "key1")
+            key2 = config.get("keys", "key2")
+            if key1 is not None and key2 is not None:
+                return (key1, key2)
+
+    return (None, None)
+
+class DBLAuthV1(requests.auth.AuthBase):
+    authorization_header = 'X-DBL-Authorization'
+
+    def __init__(self, api_token, private_key):
+        super(DBLAuthV1, self).__init__()
+        self.api_token = bytes(api_token.lower(), "utf-8")
+        self.private_key = bytes(private_key.lower(), "utf-8")
+
+    def __call__(self, r):
+        r.headers[self.authorization_header] = self.make_authorization_header(r)
+        return r
+
+    def make_authorization_header(self, request):
+        mac = hmac.new(self.api_token, None, hashlib.sha1)
+        mac.update(bytes(self.signing_string_from_request(request), 'utf-8)'))
+        mac.update(self.private_key.lower())
+        tokenStr = self.api_token.decode('utf-8')
+        return 'version=v1,token=%s,signature=%s' % (tokenStr, mac.hexdigest().lower())
+
+    def signing_string_from_request(self, request):
+        dbl_header_prefix = 'x-dbl-'
+        signing_headers = ['content-type', 'date']
+
+        method = request.method
+        # use request uri, but not any of the arguments.
+        path = request.path_url.split('?')[0]
+        collected_headers = {}
+
+        for key, value in request.headers.items():
+            if key == self.authorization_header:
+                continue
+            k = key.lower()
+            if k in signing_headers or k.startswith(dbl_header_prefix):
+                collected_headers[k] = value.strip()
+
+        # these keys get empty strings if they don't exist
+        if 'content-type' not in collected_headers:
+            collected_headers['content-type'] = ''
+        if 'date' not in collected_headers:
+            collected_headers['date'] = ''
+
+        sorted_header_keys = sorted(collected_headers.keys())
+
+        buf = "%s %s\n" % (method, path)
+        for key in sorted_header_keys:
+            val = collected_headers[key]
+            if key.startswith(dbl_header_prefix):
+                buf += "%s:%s\n" % (key, val)
+            else:
+                buf += "%s\n" % val
+        return buf
+
+
+class DBLReader(object):
+    def __init__(self, key1 = None, key2 = None):
+        if key1 is None or key2 is None:
+            key1, key2 = getdblkeys()
+        self.secretKey = key2
+        self.auth = DBLAuthV1(key1, key2)
+
+    def download(self, downloadDir, lang=None, skiplangs=['en', 'eng'], update=False):
+        entriesDict = self.getEntries()
+        if isinstance(entriesDict, int):
+            logging.error("ERROR in obtaining DBL entries; HTTP response code = ", entriesDict)
+            return False
+        else:
+            for (entryId, entryInfo) in entriesDict.items():
+                (entryLangCode, entryAccessType) = entryInfo
+                if (lang is not None and lang != entryLangCode and not entryLangCode.startswith(lang+"-")) \
+                        or entryLangCode in skiplangs:
+                    continue
+                if update and os.path.exists(os.path.join(downloadDir, entryLangCode+"_"+entryId+".zip")):
+                    logging.debug("Skipping (already have): " + entryId + " - " + entryLangCode)
+                    continue
+                logging.info("Downloading: " + entryId + " - " + entryLangCode)
+                self.downloadOneEntry(entryId, entryLangCode, entryAccessType, downloadDir)
+        return True
+        
+
+    def testAccess(self):
+        response = requests.get('https://thedigitalbiblelibrary.org',
+                                auth=self.auth, headers=self._jsonHeaders())
+        return response.status_code
+
+    def getjson(self, url):
+        response = requests.get(url, auth=self.auth, headers=self._jsonHeaders())
+        if response.status_code == 200:
+            return (json.loads(response.content), response.status_code)
+        else:
+            return (None, response.status_code)
+
+    def getLicenses(self):
+        return self.getjson('https://thedigitalbiblelibrary.org/api/licenses')
+
+    def getEntries(self):
+        fullResult = {}
+        httpResult = 1000
+        #accessTypeKeys = ['publishable', 'public', 'open_access', 'owned']
+        accessTypeKeys = ['owned']
+        alllangs = set()
+        for accessType in accessTypeKeys:
+            #entriesDict, httpResult = self.getjson('https://thedigitalbiblelibrary.org/api/' + accessType + '_entries_list')
+            entriesDict, httpResult = self.getjson('https://thedigitalbiblelibrary.org/api/entries')
+            if httpResult == 200:
+                for entry in entriesDict['entries']:
+                    id = entry['id']
+                    langCode = entry['languageLDMLId']
+                    if not len(langCode):
+                        langCode = entry['languageCode']
+                    if langCode in alllangs:
+                        langCode += "-x-" + entry['nameAbbreviation']
+                    alllangs.add(langCode)
+                    if id in fullResult:
+                        (bogus, oldAccess) = fullResult[id]
+                        if oldAccess != accessType:
+                            logging.info("changing " + langCode + "_" + id + " from " + oldAccess + " to " + accessType)
+                    fullResult[id] = (langCode, accessType)
+                return fullResult
+            else:
+                return min(httpResult, response.status_code)
+
+    def downloadOneEntry(self, entryId, langCode, accessType, downloadPath):
+        # Get the metadata that includes the license key for reading.
+        entryMetaData, httpResult = self.getjson('https://thedigitalbiblelibrary.org/api/entries/' + entryId)
+        if httpResult != 200:
+            return httpResult
+        licenses = entryMetaData['licenses']
+        if accessType == 'owned':
+            licenseId = "owner"
+        elif len(licenses) > 0:
+            licenseId = str((licenses[0])['id'])
+        else:
+            logging.warn(langCode + "_" + entryId + " - no licenses")
+            return 403  # forbidden
+
+        entryUrl = 'https://thedigitalbiblelibrary.org/api/entries/' + entryId + "/revisions/latest/licenses/" + licenseId
+        entryData, response = self.getjson(entryUrl)
+        if response != 200:
+            logging.error(langCode + " - can't access files")
+            return response
+
+        result = None
+        urlList = entryData['urls']
+        downloadZip = False
+        for url in urlList:
+            path = url['path']
+            downloadUrl = None
+            ext = path[path.rfind("."):]
+            if ext == ".usx":
+                downloadZip = True
+                break
+            if ext in ('.lds', '.ssf', '.ldml'):
+                key = ext[1:]
+            if ext in ('.sfm', '.usfm', '.ptx'):
+                logging.warn("Found SFM file!!")
+
+        if downloadZip:
+            url = 'https://thedigitalbiblelibrary.org/api/entries/' + entryId + "/revisions/latest/licenses/"  \
+                            + licenseId + ".zip"
+            response = requests.get(url, auth=self.auth, headers=self._jsonHeaders())
+            if response.status_code == 200:
+                downloadFileName = langCode + "_" + entryId + ".zip"
+                self._saveDownloadedFile(downloadPath, downloadFileName, response.content)
+                result = downloadPath + "/" + downloadFileName
+                logging.debug(langCode + " - DOWNLOADED " + downloadFileName)
+            else:
+                logging.warn(langCode + " - can't download zip file" + ": " + str(response.status_code))
+        else:
+            logging.warn(langCode + " - no usx files")
+        return result
+
+    def _jsonHeaders(self):
+        return {'Date': format_date_time(mktime(datetime.now().timetuple())),
+                'Content-Type': 'application/json'}
+
+    def _saveDownloadedFile(self, dirPath, filename, contents):
+        if not os.path.exists(dirPath):
+            os.makedirs(dirPath)
+        fullname = os.path.join(dirPath, filename)
+        with open(fullname, "wb") as outf:
+            outf.write(contents)
+
+#end of class DBLReader
 def main():
     pass
 
 
 class DBL(object):
-
-    def __init__(self):
-        self.exemplars = Exemplars()
-        # For DBL data, we have our doubts as to whether frequency is a good indicator of whether a character
-        # is main or auxiliary. So set the threshold to zero which will treat all characters found as main.
-        self.exemplars.frequent = 0.0
+    def __init__(self, zipfilename):
         self.project = None
         self.publishable = set()
         self.main_text = ('ip', 's', 'p', 'q')
-
-    def open_project(self, zipfilename):
-        """Open a DBL project zip file."""
         self.project = zipfile.ZipFile(zipfilename, 'r')
-        # self.corpus = codecs.open(zipfilename + '.main.txt', 'w', encoding='utf-8')
 
     def query_project(self):
         """Query a DBL project for ad-hoc information.
@@ -77,8 +304,8 @@ class DBL(object):
         if not found:
             print("not found!")
 
-    def process_project(self):
-        """Process a DBL project."""
+    def analyze_text(self):
+        """Analyse the scripture text. Iterates yielding text strings"""
 
         # Read stylesheet.
         found_stylesheet = False
@@ -95,7 +322,8 @@ class DBL(object):
             if filename.endswith('.usx'):
                 usx = self.project.open(filename, 'r')
                 for text in self._process_usx_file(usx):
-                    self.exemplars.process(text)
+                    yield text
+                    # self.exemplars.process(text)
                     # self.corpus.write(text + '\n')
 
     def _read_stylesheet(self, style):
@@ -165,11 +393,6 @@ class DBL(object):
         """Close a DBL project."""
         self.project.close()
         # self.corpus.close()
-
-    def analyze_projects(self):
-        """Analyze DBL project(s)."""
-        self.exemplars.analyze()
-
 
 if __name__ == '__main__':
     main()
