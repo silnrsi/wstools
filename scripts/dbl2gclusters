@@ -12,23 +12,32 @@ from palaso.sldr.ldml_exemplars import Exemplars
 import argparse
 import multiprocessing, logging
 
-def process(infname, lang, outdir="."):
+def process(infname, lang, outdir=".", update=False):
+    path = os.path.join(outdir, lang[0])
+    if not os.path.exists(path):
+        os.makedirs(path)
+    outfile = os.path.join(path, lang.replace("-","_")+".tsv")
+    if update and os.path.exists(outfile):
+        logging.debug("Skipping: {}".format(infname))
+        return False
     logging.debug("Processing: {}".format(infname))
     dblObj = dbl.DBL(infname)
     exemplars = Exemplars()
     exemplars.frequent = 0.0
-    for t in dblObj.analyze_text():
-        exemplars.process(t)
+    try:
+        for t in dblObj.analyze_text():
+            exemplars.process(t)
+    except Exception as e:
+        pass
     dblObj.close_project()
     exemplars.analyze()
+    clusters = {k.base+k.trailers: v for k, v in exemplars.raw_clusters.items()}
     
-    path = os.path.join(outdir, lang[0])
-    if not os.path.exists(path):
-        os.makedirs(path)
-    with open(os.path.join(path, lang.replace("-","_")+".tsv"), "w") as outf:
+    with open(outfile, "w") as outf:
         outf.write("cluster\tcount\n")
-        for k, v in sorted(exemplars.clusters.items(), key=lambda a: (-a[1], a[0])):
+        for k, v in sorted(clusters.items(), key=lambda a: (-a[1], a[0])):
             outf.write("{}\t{}\n".format(k, v))
+    return True
 
 parser = argparse.ArgumentParser()
 parser.add_argument('inputdir',help='Input directory containing project zips')
@@ -38,18 +47,19 @@ parser.add_argument('-L','--lang',help='Langtag to process')
 parser.add_argument('-d','--dbl',action='store_true',help='Update DBL into inputdir')
 parser.add_argument('-j','--jobs',type=int,help='number of parallel jobs, default 0 = num processors')
 parser.add_argument('--listlangs',action='store_true',help='list all language codes available')
-parser.add_argument('-u','--update',action='store_true',help='only pull new dbl files, implies -d')
+parser.add_argument('-u','--update',action='store_true',help='only pull new dbl files')
 args = parser.parse_args()
 
 if args.loglevel:
-    logging.basicConfig(stream=sys.stdout, level=args.loglevel.upper())
+    logging.basicConfig(stream=sys.stdout, level=args.loglevel.upper(),
+            format="%(levelname)s:%(module)s %(message)s")
 
-if args.dbl or args.update:
+if args.dbl:
     dreader = dbl.DBLReader()
     dreader.download(args.inputdir, lang=args.lang, update=args.update)
 
 def doit(a):
-    process(a[0], a[1], outdir=args.outdir)
+    process(a[0], a[1], outdir=args.outdir, update=args.update)
     return True
 
 if args.listlangs:
@@ -57,12 +67,14 @@ if args.listlangs:
     entries = dreader.getEntries()
     for (entryId, entryInfo) in entries.items():
         (entryLangCode, entryAccessType) = entryInfo
-        print("{} -> {}".format(entryLangCode, entryId))
+        logging.debug("{} -> {}".format(entryLangCode, entryId))
 else:
-    allfiles = list(dbl.process_projects(args.inputdir, args.lang))
-    if args.jobs == 1:
+    filelist = [os.path.join(args.dblpath, f) for f in os.listdir(args.dblpath) if f.endswith(".zip")]
+    allfiles = list(dbl.process_projects(filelist, args.lang))
+    if args.jobs == 100:
         for a in allfiles:
             doit(a)
     else:
         p = multiprocessing.Pool(processes=args.jobs)
-        p.imap_unordered(doit, allfiles)
+        list(p.map_async(doit, allfiles).get())
+        

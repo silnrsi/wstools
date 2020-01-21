@@ -44,8 +44,8 @@ except ImportError:
     #sys.path.insert(-1, newDir)
     from sldr.ldml_exemplars import Exemplars
 
-def process_projects(indir, filterLangCode=None):
-    for filename in os.listdir(indir):
+def process_projects(files, filterLangCode=None):
+    for filename in files:
         if filename.endswith('.zip'):   # and os.path.isfile(filename)
             basename = os.path.basename(filename)
             i = basename.find("_")
@@ -56,7 +56,7 @@ def process_projects(indir, filterLangCode=None):
             if filterLangCode is not None and langCode != filterLangCode \
                     and not langCode.startswith(filterLangCode+"-"):
                 continue
-            yield (os.path.join(indir, filename), langCode)
+            yield (filename, langCode)
 
 def getdblkeys():
     try:
@@ -154,16 +154,18 @@ class DBLReader(object):
         self.secretKey = key2
         self.auth = DBLAuthV1(key1, key2)
 
-    def download(self, downloadDir, lang=None, skiplangs=['en', 'eng'], update=False):
-        entriesDict = self.getEntries()
+    def download(self, downloadDir, lang=None, skiplangs=['en', 'eng', 'es'], update=False, allids=False):
+        entriesDict = self.getEntries(allids=allids)
         if isinstance(entriesDict, int):
             logging.error("ERROR in obtaining DBL entries; HTTP response code = ", entriesDict)
             return False
         else:
             for (entryId, entryInfo) in entriesDict.items():
                 (entryLangCode, entryAccessType) = entryInfo
+                testlang = entryLangCode + "-"
+                testlang = testlang[:testlang.find("-")]
                 if (lang is not None and lang != entryLangCode and not entryLangCode.startswith(lang+"-")) \
-                        or entryLangCode in skiplangs:
+                        or testlang in skiplangs:
                     continue
                 if update and os.path.exists(os.path.join(downloadDir, entryLangCode+"_"+entryId+".zip")):
                     logging.debug("Skipping (already have): " + entryId + " - " + entryLangCode)
@@ -188,7 +190,7 @@ class DBLReader(object):
     def getLicenses(self):
         return self.getjson('https://thedigitalbiblelibrary.org/api/licenses')
 
-    def getEntries(self):
+    def getEntries(self, allids=False):
         fullResult = {}
         httpResult = 1000
         #accessTypeKeys = ['publishable', 'public', 'open_access', 'owned']
@@ -203,7 +205,7 @@ class DBLReader(object):
                     langCode = entry['languageLDMLId']
                     if not len(langCode):
                         langCode = entry['languageCode']
-                    if langCode in alllangs:
+                    if langCode in alllangs and allids:
                         langCode += "-x-" + entry['nameAbbreviation']
                     alllangs.add(langCode)
                     if id in fullResult:
@@ -287,6 +289,10 @@ class DBL(object):
         self.publishable = set()
         self.main_text = ('ip', 's', 'p', 'q')
         self.project = zipfile.ZipFile(zipfilename, 'r')
+
+    def namelist(self):
+        """ Return the zip file namelist """
+        return self.project.namelist()
 
     def query_project(self):
         """Query a DBL project for ad-hoc information.
