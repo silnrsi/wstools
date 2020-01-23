@@ -3,7 +3,7 @@
 # Read a Paratext files (.lds and .ssf), convert the relevant data to LDML, and insert into an LDML file.
 # Given the right options, can also download the Paratext files from the DBL.
 
-import sys
+import sys, traceback
 import codecs
 import os
 import logging
@@ -81,6 +81,8 @@ def processSsf(ldml, ssfFilename):
     return res.replace(":", "-")
 
 def processLds(ldml, ldsFile, ducetDict):
+    if ldsFile.peek(3)[:3] == b"\xef\xbb\xbf":
+        ldsFile.read(1)
     ldsConfig = RawConfigParser()
     ldsConfig.read_file(ldsFile)
 
@@ -118,7 +120,8 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
     for e in ldml.findall('special/sil:external-resources/sil:font'):
         if 'default' in e.get("types", ""):
             fontElemNode = e
-            break
+        else:
+            ldml.change_draft(e, "suspect")
     #fontElemNode = ldml.ensure_path(xpath)[0]
 
     defaultSizeFactor = 1.0
@@ -223,33 +226,6 @@ def _valueNotNo(value) :
         return False
     return True
 
-def _removeBom(openFile, filename, enc="default"):
-    openFile.close()
-    binaryFile = codecs.open(filename, 'rb')  # open in binary mode, to avoid encoding issues
-    bomMaybe = binaryFile.read(3)
-    if bomMaybe[0] == 239 and bomMaybe[1] == 187 and bomMaybe[2] == 191:
-        # Create a new file with no BOM.
-        filenameNoBom = filename + "_nobom"
-        fileNoBom = open(filenameNoBom, 'wb')
-        cc = 3;
-        while True:
-            c = binaryFile.read(1)
-            cc = cc + 1;
-            if not c: break
-            fileNoBom.write(c)
-        fileNoBom.close()
-        binaryFile.close()
-        os.remove(filename)
-        os.rename(filenameNoBom, filename)
-        # Open it like it was when the method started.
-        if enc == "default":
-            newOpenFile = codecs.open(filename, 'r')
-        else:
-            newOpenFile = codecs.open(filename, 'r', enc)
-        return newOpenFile
-    else:
-        return openFile
-
 def processMetadata(ldml, fname):
     etree = et.parse(fname)
     langNode = etree.getroot().find('language')
@@ -257,18 +233,21 @@ def processMetadata(ldml, fname):
         return
     ltagnameNode = langNode.find('ldml')
     if ltagnameNode is None:
-        ltagnameNode = ldml.find('identity/language/@type')
+        ltagnameNode = ldml.find('identity/language')
+        ltagname = ltagnameNode.get("type", "")
+    else:
+        ltagname = ltagnameNode.text or ""
     stagnameNode = langNode.find('scriptCode')
     localnameNode = langNode.find('nameLocal')
     if localnameNode is not None and ltagnameNode is not None:
-        ltag = LangTag(ltagnameNode.text)
-        ldml.ensure_path('localeDisplayName/languages/language[@type="{}"]'.format(ltag.lang),
+        ltag = langtag(ltagname)
+        ldml.ensure_path('localeDisplayNames/languages/language[@type="{}"]'.format(ltag.lang),
                 text=localnameNode.text)
     engnameNode = langNode.find('name')
     if engnameNode is not None:
-        ldml.ensure_path('localeDisplayName/sil:special/sil:names/sil:name[@xml:lang="en"]',
+        ldml.ensure_path('localeDisplayNames/special/sil:names/sil:name[@xml:lang="en"]',
                 text=engnameNode.text)
-    res = ltagnameNode.text + ("-"+stagnameNode.text if stagnameNode else "")
+    res = ltagname + ("-"+stagnameNode.text if stagnameNode else "")
     return res
 
 def calcSortLdsData(ldml, ldsConfig, ducetDict) :
@@ -360,7 +339,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode):
     punctChTextOrig = None
 
     exemplarinfo = {}
-    if filenames['ldml'] is not None:
+    if 'ldml' in filenames:
         with dblObj.project.open(filenames['ldml']) as inf:
             ldml = Ldml(inf)
             ldml.use_draft = 'generated'  # use @draft='generated' for newly created data
@@ -422,7 +401,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode):
 
     scriptCode = exemplars.script
 
-    if filenames.get('ssf', None) is not None:
+    if 'ssf' in filenames:
         with dblObj.project.open(filenames['ssf']) as inf:
             ltagp = processSsf(ldml, inf)
 
@@ -433,9 +412,11 @@ def processOneProject(filename, outputPath, ducetDict, langCode):
         if collCrNode is not None:
             collationNode.remove(collCrNode)
 
-    if filenames.get('lds', None) is not None:
+    if 'lds' in filenames:
         with codecs.getreader("utf-8")(dblObj.project.open(filenames['lds'])) as inf:
             processLds(ldml, inf, ducetDict)
+    else:
+        _addLdsSsfDataFont(ldml, "", "")
 
     if hasMetaDataFile:
         with dblObj.project.open("metadata.xml") as inf:
@@ -443,19 +424,26 @@ def processOneProject(filename, outputPath, ducetDict, langCode):
 
     dblObj.close_project()
 
-    ltag = langtag(str(lookup(ltagp or langCode)))
+    try:
+        ltag = langtag(str(lookup(ltagp or langCode).tag))
+    except KeyError:
+        ltag = langtag(ltagp or langCode)
 
     # Version
     dateNow = datetime.utcnow()
     genTimeValue = datetime.strftime(dateNow, "%Y%m%d.%H%M")
-    versionNode = ldml.ensure_path('identity/version[@number="{}"]'.format(genTimeValue),
-                text="Generated by dbl2ldml")
+    ldml.remove_path("identity/version")
+    versionNode = ldml.ensure_path('identity/version', text="Generated by dbl2ldml")[0]
+    versionNode.set('number', genTimeValue)
 
     if ltag.script is not None:
         scriptElem = ldml.ensure_path('identity/script[@type="{}"]'.format(ltag.script))
     langElem = ldml.ensure_path('identity/language[@type="{}"]'.format(ltag.lang))
 
-    ldmlOutputFilename = os.path.join(outputPath, str(ltag).replace("-", "_") + ".xml")
+    outdir = os.path.join(outputPath, str(ltag)[0])
+    if not os.path.exists(outdir):
+        os.makedirs(outdir, exist_ok=True)
+    ldmlOutputFilename = os.path.join(outdir, str(ltag).replace("-", "_") + ".xml")
     ldml.normalise()
     ldml.save_as(ldmlOutputFilename)
 
@@ -464,18 +452,18 @@ def processOneProject(filename, outputPath, ducetDict, langCode):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-D','--dbl', default='true')  # values are 'false', 'true', 'update'
-    parser.add_argument('-z','--zipfile')
+    parser.add_argument('-u','--update',action='store_true',help='Update .zip files in dblpath')
+    parser.add_argument('-d','--dblpath',help="Path to local zips of DBL")
+    parser.add_argument('-o','--outpath',help="Directory to store generated ldml files in if not -l")
     parser.add_argument('-L','--lang',help='Only process given language')
     parser.add_argument('-j','--jobs',type=int,help="Number of parallel processes to run, 0 = default = number of processors")
-    parser.add_argument('-l','--ldml',help='input LDML base file')
-    parser.add_argument('-s','--ssf',help='input SSF file')
-    parser.add_argument('-d','--lds',default="C:/ChordTeam/DBL2LDML/testdata/zzz/zzz.lds",help='input LDS file')
-    parser.add_argument('-o','--outfile',default="C:/ChordTeam/DBL2LDML/testdata/zzz/zzz_Latn_out.xml",help='output LDML file')
-    parser.add_argument('-O','--outpath',default="./temp_output",help="Directory to store generated ldml files in if not -l")
-    parser.add_argument('-P','--dblpath',default="C:/ChordTeam/DBL2LDML",help="Path to local zips of DBL")
-    parser.add_argument('-T','--cachedir',default="./temp_download",help="Where to download a DBL zip file to, or where to find them")
-    parser.add_argument('--debug',action="store_true",help="Enable debug")
+    parser.add_argument('-z','--zipfile',help='Process a specific .zip file')
+    parser.add_argument('--ldml',help='input LDML base file to directly process')
+    parser.add_argument('--ssf',help='input SSF file to directly process')
+    parser.add_argument('--lds',help='input LDS file to directly process')
+    parser.add_argument('-s','--srcpath',help="Path to a cache of zips to use when downloading")
+    parser.add_argument('-l','--loglevel',help='Set logging level')
+    parser.add_argument('-D','--debug',action="store_true",help="Enable debug")
 
     args = parser.parse_args()
     ducetDict = ducet.readDucet()
@@ -491,30 +479,35 @@ if __name__ == '__main__':
         try:
             processOneProject(f, args.outpath, ducetDict, l)
         except Exception as e:
-            logging.error("Error {}\nType: {}\nArgs: {}".format(e, type(e), e.args))
+            bt = traceback.format_exc(limit=5)
+            logging.error("Error in {}, {}\nType: {} Args: {}".format(f, e, type(e), e.args))
+            logging.error(bt)
             if args.debug:
                 raise e
         return True
 
-    if args.dbl == 'true' or args.dbl == 'update':
-        if args.dbl == 'update':
-            dbl = DBL.dblreader()
-            dbl.download(args.dblpath, langs=args.lang)
-        if args.zipfile is None:
-            filelist = [os.path.join(args.dblpath, f) for f in os.listdir(args.dblpath) if f.endswith(".zip")]
-        else:
-            filelist = [args.zipfile]
-        jobs = list(dbl.process_projects(filelist, args.lang))
-        if args.jobs == 1:
-            [processfile(*j) for j in jobs]
-        else:
-            pool = multiprocessing.Pool(processes=args.jobs)
-            list(pool.starmap_async(processfile, jobs).get())
+    if args.loglevel:
+        logging.basicConfig(stream=sys.stdout, level=args.loglevel.upper(),
+                format="%(levelname)s:%(module)s %(message)s")
+
+    if args.update:
+        rdr = dbl.DBLReader()
+        rdr.download(args.dblpath, lang=args.lang, srcdir=args.srcpath)
+    if args.zipfile is None:
+        filelist = [os.path.join(args.dblpath, f) for f in os.listdir(args.dblpath) if f.endswith(".zip")]
     else:
+        filelist = [args.zipfile]
+    jobs = sorted(dbl.process_projects(filelist, args.lang))
+    if args.jobs == 1:
+        [processfile(*j) for j in jobs]
+    else:
+        pool = multiprocessing.Pool(processes=args.jobs)
+        list(pool.starmap_async(processfile, jobs).get())
+    if False:
         # Just process one set of files that is already present.
         ssfFile = args.ssf
         ldsFile = args.lds
-        outFile = args.outfile
+        outFile = args.outpath
 
         if ldmlFile:
             ldml = Ldml(args.ldml)

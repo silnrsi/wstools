@@ -31,7 +31,7 @@ import requests, hmac, hashlib, json
 # import codecs
 import zipfile, logging
 import xml.etree.ElementTree as ET
-from shutil import copyfile
+from shutil import copy
 from datetime import datetime
 from wsgiref.handlers import format_date_time
 from time import mktime
@@ -154,8 +154,12 @@ class DBLReader(object):
         self.secretKey = key2
         self.auth = DBLAuthV1(key1, key2)
 
-    def download(self, downloadDir, lang=None, skiplangs=['en', 'eng', 'es'], update=False, allids=False):
+    def download(self, downloadDir, lang=None, skiplangs=['en', 'eng', 'es'], update=False, allids=False, srcdir=None):
         entriesDict = self.getEntries(allids=allids)
+        if srcdir is not None:
+            srcs = set(os.listdir(srcdir))
+        else:
+            srcs = set()
         if isinstance(entriesDict, int):
             logging.error("ERROR in obtaining DBL entries; HTTP response code = ", entriesDict)
             return False
@@ -164,13 +168,19 @@ class DBLReader(object):
                 (entryLangCode, entryAccessType) = entryInfo
                 testlang = entryLangCode + "-"
                 testlang = testlang[:testlang.find("-")]
+                fname = entryLangCode+"_"+entryId+".zip"
                 if (lang is not None and lang != entryLangCode and not entryLangCode.startswith(lang+"-")) \
                         or testlang in skiplangs:
+                    logging.debug("Skipping (language): "+fname)
                     continue
-                if update and os.path.exists(os.path.join(downloadDir, entryLangCode+"_"+entryId+".zip")):
-                    logging.debug("Skipping (already have): " + entryId + " - " + entryLangCode)
+                if update and os.path.exists(os.path.join(downloadDir, fname)):
+                    logging.debug("Skipping (already have): " + fname)
                     continue
-                logging.info("Downloading: " + entryId + " - " + entryLangCode)
+                if fname in srcs:
+                    logging.debug("Copying {} from {} to {}".format(fname, srcdir, downloadDir))
+                    copy(os.path.join(srcdir, fname), downloadDir)
+                    continue
+                logging.info("Downloading: " + fname)
                 self.downloadOneEntry(entryId, entryLangCode, entryAccessType, downloadDir)
         return True
         
@@ -205,8 +215,11 @@ class DBLReader(object):
                     langCode = entry['languageLDMLId']
                     if not len(langCode):
                         langCode = entry['languageCode']
-                    if langCode in alllangs and allids:
-                        langCode += "-x-" + entry['nameAbbreviation']
+                    if langCode in alllangs:
+                        if allids:
+                            langCode += "-x-" + entry['nameAbbreviation']
+                        else:
+                            continue
                     alllangs.add(langCode)
                     if id in fullResult:
                         (bogus, oldAccess) = fullResult[id]
@@ -366,7 +379,7 @@ class DBL(object):
                 if newname is not None:
                     if os.path.exists(newname):
                         os.remove(newname)
-                    copyfile(filename, newname)
+                    copy(filename, newname)
                     os.remove(filename)
                 return
 
