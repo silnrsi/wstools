@@ -33,52 +33,108 @@ except ImportError:
 
 silns = {'sil' : "urn://www.sil.org/ldml/0.1" }
 
-def processSsf(ldml, ssfFilename):
-    if ssfFilename is None:
-        return
-    if isinstance(ssfFilename, str):  # Python 2 uses basestring
-        ssfFile = open(ssfFilename, 'rb')
-    else:
-        ssfFile = ssfFilename
+class Ssf:
+    def __init__(self, ssfFilename):
+        if ssfFilename is None:
+            return
+        if isinstance(ssfFilename, str):  # Python 2 uses basestring
+            ssfFile = open(ssfFilename, 'rb')
+        else:
+            ssfFile = ssfFilename
 
-    ssfLangData = {  # initializing everything to None simplifies the processing
-        'LanguageIsoCode': None,
-        'DefaultFont': None,
-        'DefaultFontSize': None,
-        'ValidCharacters': None,
-        'Pairs': None,
-        'Quotes': None,
-        'InnerQuotes': None,
-        'InnerInnerQuotes': None,
-        'ContinueQuotes': None,
-        'ContinueInnerQuotes': None,
-        'Continuer': None,
-        'InnerContinuer': None,
-        'InnerInnerContinuer': None,
-        'VerboseQuotes': None,
-        'ValidPunctuation': None}
-    
-    for (event, e) in etree.iterparse(ssfFile, events=('start', 'end')) :
-        ##print(event + ": " + e.tag)
-        if event == 'start' :
-            if e.tag in ssfLangData :
-                ssfLangData[e.tag] = e.text
+        self.ssfLangData = {  # initializing everything to None simplifies the processing
+            'LanguageIsoCode': None,
+            'DefaultFont': None,
+            'DefaultFontSize': None,
+            'ValidCharacters': None,
+            'Pairs': None,
+            'Quotes': None,
+            'InnerQuotes': None,
+            'InnerInnerQuotes': None,
+            'ContinueQuotes': None,
+            'ContinueInnerQuotes': None,
+            'Continuer': None,
+            'InnerContinuer': None,
+            'InnerInnerContinuer': None,
+            'VerboseQuotes': None,
+            'ValidPunctuation': None}
+        
+        for (event, e) in etree.iterparse(ssfFile, events=('start', 'end')) :
+            ##print(event + ": " + e.tag)
+            if event == 'start' :
+                if e.tag in ssfLangData :
+                    self.ssfLangData[e.tag] = e.text
 
-    if ssfLangData['DefaultFont'] or ssfLangData['DefaultFontSize'] :
-        _addSsfDataFont(ldml, ssfLangData['DefaultFont'], ssfLangData['DefaultFontSize'])
-    if ssfLangData['Pairs'] :
-        _addSsfDataPairs(ldml, ssfLangData['Pairs'])
-    if ssfLangData['Quotes'] :
-        _addSsfDataQuotes(ldml, ssfLangData['Quotes'])
-    if ssfLangData['InnerQuotes'] :
-        _addSsfDataInnerQuotes(ldml, ssfLangData['InnerQuotes'])
-    if ssfLangData['InnerInnerQuotes'] :
-        _addSsfDataInnerInnerQuotes(ldml, ssfLangData['InnerInnerQuotes'])
+    def get_lang(self):
+        res = self.ssfLangData['LanguageIsoCode']
+        while res[-1] == ":":
+            res = res[:-1]
+        return res.replace(":", "-")
 
-    res = ssfLangData['LanguageIsoCode']
-    while res[-1] == ":":
-        res = res[:-1]
-    return res.replace(":", "-")
+    def process(self, ldml):
+        if self.ssfLangData['DefaultFont'] or self.ssfLangData['DefaultFontSize'] :
+            self._addSsfDataFont(ldml, self.ssfLangData['DefaultFont'], self.ssfLangData['DefaultFontSize'])
+        if self.ssfLangData['Pairs'] :
+            self._addSsfDataPairs(ldml, self.ssfLangData['Pairs'])
+        if self.ssfLangData['Quotes'] :
+            self._addSsfDataQuotes(ldml, self.ssfLangData['Quotes'])
+        if self.ssfLangData['InnerQuotes'] :
+            self._addSsfDataInnerQuotes(ldml, self.ssfLangData['InnerQuotes'])
+        if self.ssfLangData['InnerInnerQuotes'] :
+            self._addSsfDataInnerInnerQuotes(ldml, self.ssfLangData['InnerInnerQuotes'])
+
+    def _addSsfDataPairs(self, ldml, pairsValue) :
+        # Pairs ->
+        # delimiters/special/sil:matched-pairs/sil:matched-pair/@open, @close
+        matchedElem = ldml.ensure_path('delimiters/special/sil:matched-pairs')[0]
+        pairs = set([x.split('/') for x in pairsValue.split(' ')])
+        for e in matchedElem:
+            t = (e.get('open', ''), e.get('close', ''))
+            if t not in pairs:
+                e.change_draft("suspect")
+            else:
+                pairs.remove(t)
+        for p in sorted(pairs):
+            ldml.addnode(matchedElem, 'sil:matched-pair', open=p[0], close=p[1])
+
+    def _addSsfDataQuotes(self, ldml, quotesValue) :
+        # Quotes ->
+        # delimiters/quotationStart, delimiters/quotationEnd
+        (qStart, qEnd) = quotesValue.split(' ')
+        qStartElem = ldml.ensure_path('delimiters/quotationStart', text=qStart)
+        qEndElem = ldml.ensure_path('delimiters/quotationEnd', text=qEnd)
+
+    def _addSsfDataInnerQuotes(self, ldml, quotesValue) :
+        # InnerQuotes ->
+        # delimiters/alternateQuotationStart, delimiters/alternateQuotationEnd
+        (qStart, qEnd) = quotesValue.split(' ')
+        qStartElem = ldml.ensure_path('delimiters/alternateQuotationStart', text=qStart)
+        qEndElem = ldml.ensure_path('delimiters/alternateQuotationEnd', text=qEnd)
+
+    def _addSsfDataInnerInnerQuotes(self, ldml, quotesValue) :
+        # InnerInnerQuotes ->
+        # delimiters/special/sil:quotation-marks[@level="3"]/@open, @close
+        (qStart, qEnd) = quotesValue.split(' ')
+        qMark3Elem = ldml.ensure_path('delimiters/special/sil:quotation-marks/'
+                    'sil:quotation[@level="3"][@open="{}"][@close"{}"]'.format(qStart, qEnd))[0]
+
+    def _addSsfDataContinueQuotes(self, ldml, contValue, contInnerValue) :
+        # ContinueQuotes ->
+        # delimiters/special/sil:quotation-marks[@paraContinueType]/@open, @close
+        if _valueNotNo(contValue):
+            ldml.ensure_path('delimiters/special/sil:quotation-marks/sil:quotation[@level="1"][@continue="{}"]'.format(contValue))
+        if _valueNotNo(contInnerValue):
+            ldml.ensure_path('delimiters/special/sil:quotation-marks/sil:quotation[@level="2"][@continue="{}"]'.format(contInnerValue))
+
+
+def _valueNotNo(value) :
+    if value is None :
+        return False
+    if value.lower() == "no" :
+        return False
+    if value.lower() == "false" :
+        return False
+    return True
 
 def processLds(ldml, ldsFile, ducetDict):
     if ldsFile.peek(3)[:3] == b"\xef\xbb\xbf":
@@ -105,7 +161,6 @@ def processLds(ldml, ldsFile, ducetDict):
 
         _addLdsSsfDataFont(ldml, fontValue, sizeValue)
 
-
 def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
     # DefaultFont, DefaultFontSize ->
     # special/sil:external-resources/sil:fontrole[@types="default"]/sil:font[@name, @size]
@@ -120,8 +175,9 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
     for e in ldml.findall('special/sil:external-resources/sil:font'):
         if 'default' in e.get("types", ""):
             fontElemNode = e
-        else:
-            ldml.change_draft(e, "suspect")
+        elif e.get("types", "") == "":
+            e.parent.remove(e)
+            # ldml.change_draft(e, "suspect")
     #fontElemNode = ldml.ensure_path(xpath)[0]
 
     defaultSizeFactor = 1.0
@@ -133,8 +189,8 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
         # Factors close to 1.0 are not really significant.
         if defaultSizeFactor > .92 and defaultSizeFactor < 1.08:
             defaultSizeFactor = 1.0
-    if defaultSizeValue != 1.0:
-        xpath += '[@size="{}"]'.format(defaultSizeValue)
+    if defaultSizeFactor != 1.0:
+        xpath += '[@size="{}"]'.format(defaultSizeFactor)
 
     if fontElemNode is None:
         if defaultFontValue == "":
@@ -156,7 +212,7 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
         elif fontNamePrev != defaultFontValue:
             # mismatch; old value is marked suspect and alt=proposed-dbl, new value is draft
             fontElemSuspect = fontElemNode    #ldml.ensure_path(xpath)[0]
-            for alt in getattr(fontElemNode, 'alternates', {}).items():
+            for alt in getattr(fontElemNode, 'alternates', {}).values():
                 if alt.get('name', '') == defaultFontValue and alt.get('size', '1.0') == str(defaultSizeFactor):
                     break
             else:
@@ -167,64 +223,7 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
             if fontSizePrev is not None and defaultSizeFactor == 1.0:
                 del fontElemNode.attrib['size']
             elif defaultSizeFactor != 1.0:
-                fontElemNode.set('size', defaultSizeFactor)
-#end of _addLdsSsfDataFont
-
-
-def _addSsfDataPairs(ldml, pairsValue) :
-    # Pairs ->
-    # delimiters/special/sil:matched-pairs/sil:matched-pair/@open, @close
-    matchedElem = ldml.ensure_path('delimiters/special/sil:matched-pairs')[0]
-    pairs = set([x.split('/') for x in pairsValue.split(' ')])
-    for e in matchedElem:
-        t = (e.get('open', ''), e.get('close', ''))
-        if t not in pairs:
-            e.change_draft("suspect")
-        else:
-            pairs.remove(t)
-    for p in sorted(pairs):
-        ldml.addnode(matchedElem, 'sil:matched-pair', open=p[0], close=p[1])
-
-def _addSsfDataQuotes(ldml, quotesValue) :
-    # Quotes ->
-    # delimiters/quotationStart, delimiters/quotationEnd
-    (qStart, qEnd) = quotesValue.split(' ')
-    qStartElem = ldml.ensure_path('delimiters/quotationStart', text=qStart)
-    qEndElem = ldml.ensure_path('delimiters/quotationEnd', text=qEnd)
-
-
-def _addSsfDataInnerQuotes(ldml, quotesValue) :
-    # InnerQuotes ->
-    # delimiters/alternateQuotationStart, delimiters/alternateQuotationEnd
-    (qStart, qEnd) = quotesValue.split(' ')
-    qStartElem = ldml.ensure_path('delimiters/alternateQuotationStart', text=qStart)
-    qEndElem = ldml.ensure_path('delimiters/alternateQuotationEnd', text=qEnd)
-
-
-def _addSsfDataInnerInnerQuotes(ldml, quotesValue) :
-    # InnerInnerQuotes ->
-    # delimiters/special/sil:quotation-marks[@level="3"]/@open, @close
-    (qStart, qEnd) = quotesValue.split(' ')
-    qMark3Elem = ldml.ensure_path('delimiters/special/sil:quotation-marks/'
-                'sil:quotation[@level="3"][@open="{}"][@close"{}"]'.format(qStart, qEnd))[0]
-
-
-def _addSsfDataContinueQuotes(ldml, contValue, contInnerValue) :
-    # ContinueQuotes ->
-    # delimiters/special/sil:quotation-marks[@paraContinueType]/@open, @close
-    if _valueNotNo(contValue):
-        ldml.ensure_path('delimiters/special/sil:quotation-marks/sil:quotation[@level="1"][@continue="{}"]'.format(contValue))
-    if _valueNotNo(contInnerValue):
-        ldml.ensure_path('delimiters/special/sil:quotation-marks/sil:quotation[@level="2"][@continue="{}"]'.format(contInnerValue))
-
-def _valueNotNo(value) :
-    if value is None :
-        return False
-    if value.lower() == "no" :
-        return False
-    if value.lower() == "false" :
-        return False
-    return True
+                fontElemNode.set('size', str(defaultSizeFactor))
 
 def processMetadata(ldml, fname):
     etree = et.parse(fname)
@@ -310,11 +309,9 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
     # print(collObj.asICU())
     return collObj.asICU()
 
-
 def cleanUpOldSortSpec(oldValue):
     newValue = oldValue.replace('\/', '/')
     return newValue
-
 
 def _debugStr(item):
     if isinstance(item, int):
@@ -339,7 +336,30 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     punctChTextOrig = None
 
     exemplarinfo = {}
-    if 'ldml' in filenames:
+    ldml = None
+    ltagp = None
+    ssf = None
+    if 'ssf' in filenames:
+        with dblObj.project.open(filenames['ssf']) as inf:
+            ssf = Ssf(inf)
+            ltagp = ssf.get_lang()
+    try:
+        ltag = langtag(str(lookup(ltagp or langCode).tag))
+    except KeyError:
+        ltag = langtag(ltagp or langCode)
+    outfname = str(ltag).replace("-","_")+".xml"
+
+    hasldml = False
+    if sldrPath is not None:
+        testpath = os.path.join(sldrPath, outfname[0], outfname)
+        if os.path.exists(testpath):
+            ldml = Ldml(testpath)
+            identity = ldml.find(".//{{{}}}identity".format(silns['sil']))
+            if identity is not None and identity.get("source", "") == "cldr":
+                logging.debug("Skipping {} since in CLDR".format(filename))
+                return
+            hasldml = True
+    if ldml is None and 'ldml' in filenames:
         with dblObj.project.open(filenames['ldml']) as inf:
             ldml = Ldml(inf)
             ldml.use_draft = 'generated'  # use @draft='generated' for newly created data
@@ -347,7 +367,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
             for chEl in chElems:
                 exemType = chEl.get('type')
                 exemplarinfo[chEl.get('type', '')] = chEl.text
-    else:
+    if ldml is None:
         ldml = Ldml(None)
 
     ldml.uid = "dbl"  # generates alt="proposed-dbl"
@@ -399,11 +419,8 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         charNode = ldml.find('characters')
         charNode.remove(specialNode)
 
-    scriptCode = exemplars.script
-
-    if 'ssf' in filenames:
-        with dblObj.project.open(filenames['ssf']) as inf:
-            ltagp = processSsf(ldml, inf)
+    if ssf is not None:
+        ssf.process(ldml)
 
     # Any <cr> element in <collation> is suspect. In fact, just go ahead and delete it.
     collationNode = ldml.find('collations/collation')
@@ -424,48 +441,36 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
 
     dblObj.close_project()
 
-    try:
-        ltag = langtag(str(lookup(ltagp or langCode).tag))
-    except KeyError:
-        ltag = langtag(ltagp or langCode)
-    outfname = str(ltag).replace("-","_")+".xml"
-    if sldrPath is not None:
-        testpath = os.path.join(sldrPath, outfname[0], outfname)
-        if os.path.exists(testpath):
-            doc = et.parse(testpath)
-            identity = doc.find(".//{{{}}}identity".format(silns['sil']))
-            if identity is not None and identity.get("source", "") == "cldr":
-                logging.debug("Skipping {} since in CLDR".format(filename))
-                return
-
     # Version
-    dateNow = datetime.utcnow()
-    genTimeValue = datetime.strftime(dateNow, "%Y%m%d.%H%M")
-    ldml.remove_path("identity")
-    versionNode = ldml.ensure_path('identity/version', draft="unconfirmed", text="Generated by dbl2ldml")[0]
-    versionNode.set('number', genTimeValue)
-    ldml.ensure_path('identity/language[@type="{}"]'.format(ltag.lang), draft="unconfirmed")
-    if ltag.script is not None:
-        ldml.ensure_path('identity/script[@type="{}"]'.format(ltag.script), draft="unconfirmed")
-    if ltag.region is not None:
-        ldml.ensure_path('identity/region[@type="{}"]'.format(ltag.region), draft="unconfirmed")
-    if ltag.vars or ltag.ns:
-        bits = []
-        if ltag.vars is not None:
-            bits.extend(ltag.vars)
-        if ltag.ns:
-            for k, v in sorted(ltag.ns.items()):
-                bits.extend([k] + v)
-        ldml.ensure_path('identity/variant[@type="{}"]'.format("-".join(bits)), draft="unconfirmed")
-    identity = ldml.ensure_path('identity/special/sil:identity', draft="generated")[0]
-    try:
-        ltagset = lookup(str(ltag))
-        if ltagset.region is not None:
-            identity.set('defaultRegion', ltagset.region)
-        if ltagset.script is not None and ltag.script is None:
-            identity.set('script', ltagset.script)
-    except KeyError:
-        pass
+    if not hasldml:
+        # only sort out identity if we are creating rather than editing sldr file
+        dateNow = datetime.utcnow()
+        genTimeValue = datetime.strftime(dateNow, "%Y%m%d.%H%M")
+        ldml.remove_path("identity")
+        versionNode = ldml.ensure_path('identity/version', draft="unconfirmed", text="Generated by dbl2ldml")[0]
+        versionNode.set('number', genTimeValue)
+        ldml.ensure_path('identity/language[@type="{}"]'.format(ltag.lang), draft="unconfirmed")
+        if ltag.script is not None:
+            ldml.ensure_path('identity/script[@type="{}"]'.format(ltag.script), draft="unconfirmed")
+        if ltag.region is not None:
+            ldml.ensure_path('identity/region[@type="{}"]'.format(ltag.region), draft="unconfirmed")
+        if ltag.vars or ltag.ns:
+            bits = []
+            if ltag.vars is not None:
+                bits.extend(ltag.vars)
+            if ltag.ns:
+                for k, v in sorted(ltag.ns.items()):
+                    bits.extend([k] + v)
+            ldml.ensure_path('identity/variant[@type="{}"]'.format("-".join(bits)), draft="unconfirmed")
+        identity = ldml.ensure_path('identity/special/sil:identity', draft="generated")[0]
+        try:
+            ltagset = lookup(str(ltag))
+            if ltagset.region is not None:
+                identity.set('defaultRegion', ltagset.region)
+            if ltagset.script is not None and ltag.script is None:
+                identity.set('script', ltagset.script)
+        except KeyError:
+            pass
 
     outdir = os.path.join(outputPath, str(ltag)[0])
     if not os.path.exists(outdir):
