@@ -5,7 +5,7 @@
 
 import sys, traceback
 import codecs
-import os
+import os, re
 import logging
 import multiprocessing
 import json
@@ -19,22 +19,43 @@ import xml.etree.cElementTree as et
 from datetime import datetime
 from time import mktime
 from langtag import lookup, langtag
-from palaso.sldr.ldml_exemplars import Exemplars
-from palaso.sldr.ldml import Ldml
-from palaso.sldr.collation import Collation, CollElement
+from sldr.ldml_exemplars import Exemplars
+from sldr.ldml import Ldml, draftratings
+from sldr.collation import Collation, CollElement
 import palaso.sldr.ducet as ducet
 
 try:
-    import dbl
+    import newdbl
 except ImportError:
     relpath = os.path.join(os.path.dirname(__file__), '..', 'lib', 'wstools')
     sys.path.append(os.path.abspath(relpath))
-    import dbl
+    import newdbl
 
 silns = {'sil' : "urn://www.sil.org/ldml/0.1" }
+gendraft = draftratings.get('generated', 5)
+
+def gettext(e):
+    return e.text if e is not None else ''
+
+ssfmap = {
+    # LanguageIsoCode is passed in
+    'DefaultFont': ('special/sil:external-resources/sil:font[@types="default"]/@name', ''),
+    'DefaultFontSize': ('special/sil:external-resources/sil:font[@types="default"]/@size', '0'),
+    # ValidCharacters is unused
+    'Pairs': ('delimiters/special/sil:matched-pairs', lambda x: " ".join("{}/{}".format(a.get('open',''), a.get('close','')) for a in x)),
+    'Quotes': ('delimiters', lambda x: " ".join(gettext(x.find('quotation'+a)) for a in ('Start', 'End'))),
+    'InnerQuotes': ('delimiters', lambda x: " ".join(gettext(x.find('alternateQuotation'+a)) for a in ('Start', 'End'))),
+    'InnerInnerQuotes': ('delimiters/special/sil:quotation-marks/sil:quotation[@level="3"]', lambda x: " ".join(x.get(a) or '' for a in ('open', 'close'))),
+    'ContinueQuotes': ('delimiters/special/sil:quotation-marks/sil:quotation[@level="1"]/@continue', ''),
+    'ContinueInnerQuotes': ('delimiters/special/sil:quotation-marks/sil:quotation[@level="2"]/@continue', '')
+    # nothing else is used
+    }
 
 class Ssf:
-    def __init__(self, ssfFilename):
+    def __init__(self):
+        pass
+
+    def parseSsf(self, ssfFilename):
         if ssfFilename is None:
             return
         if isinstance(ssfFilename, str):  # Python 2 uses basestring
@@ -64,16 +85,27 @@ class Ssf:
             if event == 'start' :
                 if e.tag in ssfLangData :
                     self.ssfLangData[e.tag] = e.text
+        s = self.ssfLangData.get('LanguageIsoCode', '').rstrip(':')
+        self.ssfLangData['LanguageIsoCode'] = s.replace(':', '-')
+
+    def fromLdml(self, ldml, langcode):
+        self.ssfLangData = {'LanguageIsoCode': langcode}
+        for k, v in ssfmap.items():
+            e = ldml.find(v[0])
+            if e is None and isinstance(v[1], str):
+                res = v[1]
+            elif e is not None:
+                res = v[1](e)
+            else:
+                res = ''
+            self.ssfLangData[k] = res
 
     def get_lang(self):
-        res = self.ssfLangData['LanguageIsoCode']
-        while res[-1] == ":":
-            res = res[:-1]
-        return res.replace(":", "-")
+        return self.ssfLangData['LanguageIsoCode']
 
     def process(self, ldml):
         if self.ssfLangData['DefaultFont'] or self.ssfLangData['DefaultFontSize'] :
-            self._addSsfDataFont(ldml, self.ssfLangData['DefaultFont'], self.ssfLangData['DefaultFontSize'])
+            _addLdsSsfDataFont(ldml, self.ssfLangData['DefaultFont'], float(self.ssfLangData['DefaultFontSize']) * 14)
         if self.ssfLangData['Pairs'] :
             self._addSsfDataPairs(ldml, self.ssfLangData['Pairs'])
         if self.ssfLangData['Quotes'] :
@@ -87,11 +119,13 @@ class Ssf:
         # Pairs ->
         # delimiters/special/sil:matched-pairs/sil:matched-pair/@open, @close
         matchedElem = ldml.ensure_path('delimiters/special/sil:matched-pairs')[0]
-        pairs = set([x.split('/') for x in pairsValue.split(' ')])
-        for e in matchedElem:
+        if ldml.get_draft(matchedElem) < gendraft:
+            return
+        pairs = set(tuple(x.split('/')) for x in pairsValue.split(' '))
+        for e in list(matchedElem):
             t = (e.get('open', ''), e.get('close', ''))
             if t not in pairs:
-                e.change_draft("suspect")
+                matchedElem.remove(e)
             else:
                 pairs.remove(t)
         for p in sorted(pairs):
@@ -101,6 +135,8 @@ class Ssf:
         # Quotes ->
         # delimiters/quotationStart, delimiters/quotationEnd
         (qStart, qEnd) = quotesValue.split(' ')
+        if not qStart and not qEnd:
+            return
         qStartElem = ldml.ensure_path('delimiters/quotationStart', text=qStart)
         qEndElem = ldml.ensure_path('delimiters/quotationEnd', text=qEnd)
 
@@ -108,6 +144,8 @@ class Ssf:
         # InnerQuotes ->
         # delimiters/alternateQuotationStart, delimiters/alternateQuotationEnd
         (qStart, qEnd) = quotesValue.split(' ')
+        if not qStart and not qEnd:
+            return
         qStartElem = ldml.ensure_path('delimiters/alternateQuotationStart', text=qStart)
         qEndElem = ldml.ensure_path('delimiters/alternateQuotationEnd', text=qEnd)
 
@@ -115,8 +153,10 @@ class Ssf:
         # InnerInnerQuotes ->
         # delimiters/special/sil:quotation-marks[@level="3"]/@open, @close
         (qStart, qEnd) = quotesValue.split(' ')
+        if not qStart and not qEnd:
+            return
         qMark3Elem = ldml.ensure_path('delimiters/special/sil:quotation-marks/'
-                    'sil:quotation[@level="3"][@open="{}"][@close"{}"]'.format(qStart, qEnd))[0]
+                    'sil:quotation[@level="3"][@open="{}"][@close="{}"]'.format(qStart, qEnd))[0]
 
     def _addSsfDataContinueQuotes(self, ldml, contValue, contInnerValue) :
         # ContinueQuotes ->
@@ -136,20 +176,11 @@ def _valueNotNo(value) :
         return False
     return True
 
-def processLds(ldml, ldsFile, ducetDict):
+def processLds(ldml, ldsFile, ducetDict, replaceColl):
     if ldsFile.peek(3)[:3] == b"\xef\xbb\xbf":
         ldsFile.read(1)
     ldsConfig = RawConfigParser()
     ldsConfig.read_file(ldsFile)
-
-    sortSpecString = calcSortLdsData(ldml, ldsConfig, ducetDict)
-    if len(sortSpecString):
-        collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
-        crElem = ldml.addnode(collationElem, 'cr')
-        crElem.text = sortSpecString
-        # CDATA handling done by ldml object, we hope
-
-    # Font name and size
 
     if ldsConfig.has_section('General'):
         fontValue = None
@@ -159,7 +190,14 @@ def processLds(ldml, ldsFile, ducetDict):
         if ldsConfig.has_option('General', 'size'):
             sizeValue = ldsConfig.get('General', 'size')
 
-        _addLdsSsfDataFont(ldml, fontValue, sizeValue)
+        _addLdsSsfDataFont(ldml, fontValue, float(sizeValue or 0))
+
+    if replaceColl:
+        simpleColls = readLdsCollation(ldsConfig)
+        sortSpecString = calcSortLdsData(ldml, simpleColls, ducetDict)
+        return sortSpecString
+    return ""
+
 
 def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
     # DefaultFont, DefaultFontSize ->
@@ -170,16 +208,6 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
 
     xpath = 'special/sil:external-resources/sil:font[@types="default"][@name="{}"]'.format(defaultFontValue)
 
-    exResNode = ldml.ensure_path('special/sil:external-resources')[0]
-    fontElemNode = None
-    for e in ldml.findall('special/sil:external-resources/sil:font'):
-        if 'default' in e.get("types", ""):
-            fontElemNode = e
-        elif e.get("types", "") == "":
-            e.parent.remove(e)
-            # ldml.change_draft(e, "suspect")
-    #fontElemNode = ldml.ensure_path(xpath)[0]
-
     defaultSizeFactor = 1.0
     if defaultSizeValue:
         # We treat Times New Roman size 14 as the standard.
@@ -189,6 +217,15 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
         # Factors close to 1.0 are not really significant.
         if defaultSizeFactor > .92 and defaultSizeFactor < 1.08:
             defaultSizeFactor = 1.0
+    exResNode = ldml.ensure_path('special/sil:external-resources')[0]
+    fontElemNode = None
+    for e in ldml.findall('special/sil:external-resources/sil:font'):
+        if 'default' in e.get("types", ""):
+            fontElemNode = e
+            if (defaultFontValue == "" or e.get('name') == defaultFontValue) \
+                    and (defaultSizeValue < 0.001 or float(e.get('size', '1.0')) == defaultSizeFactor):
+                return
+
     if defaultSizeFactor != 1.0:
         xpath += '[@size="{}"]'.format(defaultSizeFactor)
 
@@ -216,7 +253,7 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
                 if alt.get('name', '') == defaultFontValue and alt.get('size', '1.0') == str(defaultSizeFactor):
                     break
             else:
-                ldml.change_draft(fontElemSuspect, "suspect")
+                fontElemSuspect.parent.remove(fontElemSuspect)
             fontElemNode = ldml.ensure_path(xpath, draft="generated", matchdraft="draft")[0]
         else:
             # Font values match.
@@ -243,13 +280,13 @@ def processMetadata(ldml, fname):
         ldml.ensure_path('localeDisplayNames/languages/language[@type="{}"]'.format(ltag.lang),
                 text=localnameNode.text)
     engnameNode = langNode.find('name')
-    if engnameNode is not None:
+    if engnameNode is not None or ldml.get_draft(engnameNode) >= gendraft:
         ldml.ensure_path('localeDisplayNames/special/sil:names/sil:name[@xml:lang="en"]',
                 text=engnameNode.text)
     res = ltagname + ("-"+stagnameNode.text if stagnameNode else "")
     return res
 
-def calcSortLdsData(ldml, ldsConfig, ducetDict) :
+def readLdsCollation(ldsConfig):
     valueList = []
     # Read sorted characters lists from .lds file.
     if ldsConfig.has_section('Characters') :
@@ -267,6 +304,9 @@ def calcSortLdsData(ldml, ldsConfig, ducetDict) :
                     value = "'"  # kludge; why does the get() function return the wrong value?
                 valueList.append(value)
             cntr = cntr + 1
+    return valueList
+
+def calcSortLdsData(ldml, valueList, ducetDict) :
     # Generate a data structure similar to a sort tailoring for the list of characters.
     sortResult = []
     collObj = Collation(ducetDict)
@@ -321,7 +361,8 @@ def _debugStr(item):
     return repr(result)
 
 def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
-    dblObj = dbl.DBL(filename)
+    dblObj = newdbl.DBL()
+    dblObj.open_project(filename)
 
     filenames = {}
     for n in dblObj.namelist():
@@ -337,12 +378,20 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
 
     exemplarinfo = {}
     ldml = None
+    dblLdml = None
     ltagp = None
     ssf = None
+    if 'ldml' in filenames:
+        with dblObj.project.open(filenames['ldml']) as inf:
+            dblLdml = Ldml(inf)
     if 'ssf' in filenames:
         with dblObj.project.open(filenames['ssf']) as inf:
-            ssf = Ssf(inf)
+            ssf = Ssf()
+            ssf.parseSsf(inf)
             ltagp = ssf.get_lang()
+    elif dblLdml is not None:
+        ssf = Ssf()
+        ssf.fromLdml(dblLdml, langCode)
     try:
         ltag = langtag(str(lookup(ltagp or langCode).tag))
     except KeyError:
@@ -359,16 +408,14 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                 logging.debug("Skipping {} since in CLDR".format(filename))
                 return
             hasldml = True
-    if ldml is None and 'ldml' in filenames:
-        with dblObj.project.open(filenames['ldml']) as inf:
-            ldml = Ldml(inf)
-            ldml.use_draft = 'generated'  # use @draft='generated' for newly created data
-            chElems = ldml.root.findall('characters/exemplarCharacters')
-            for chEl in chElems:
-                exemType = chEl.get('type')
-                exemplarinfo[chEl.get('type', '')] = chEl.text
     if ldml is None:
-        ldml = Ldml(None)
+        ldml = dblLdml if dblLdml is not None else Ldml(None)
+        ldml.use_draft = 'generated'
+        ldml.default_draft = 'generated'
+    chElems = ldml.root.findall('characters/exemplarCharacters')
+    for chEl in chElems:
+        exemType = chEl.get('type')
+        exemplarinfo[chEl.get('type', '')] = (chEl.text, ldml.get_draft(chEl))
 
     ldml.uid = "dbl"  # generates alt="proposed-dbl"
 
@@ -381,25 +428,18 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     for t in ('main', 'auxiliary', 'index', 'punctuation'):
         key = '' if t == 'main' else t
         xpath = 'characters/exemplarCharacters[@type="' + key + '"]'
-        oldValue = exemplarinfo.get(key, '')
+        oldValue, oldDraft = exemplarinfo.get(key, ('', 6))
         newValue = getattr(exemplars, t)
+        chElem = None
         if oldValue == '':
-            if newValue == "[]":
-                chElem = None  # ignore new empty value
-            else:
+            if newValue != "[]":
                 # no previous value; mark new value generated
-                chElem = ldml.ensure_path(xpath, draft="generated")[0]
+                chElem = ldml.ensure_path(xpath)[0]
         elif newValue != oldValue:
-            if oldValue == "[]":
+            if oldValue == "[]" or oldDraft >= gendraft:
                 # Throw away old empty value
-                chElem = ldml.ensure_path(xpath, draft="generated")[0]
+                chElem = ldml.ensure_path(xpath)[0]
                 ldml.change_draft(chElem, "generated")
-            else:
-                # mismatch; old value is marked suspect and alt=proposed-dbl, new value is draft
-                chElemSuspect = ldml.ensure_path(xpath)[0]
-                chElemSuspect.text = oldValue
-                ldml.change_draft(chElemSuspect, "suspect")
-                chElem = ldml.ensure_path(xpath, draft="generated", matchdraft="draft")[0]
         else:
             # values match; no change
             chElem = ldml.ensure_path(xpath)[0]
@@ -423,17 +463,34 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         ssf.process(ldml)
 
     # Any <cr> element in <collation> is suspect. In fact, just go ahead and delete it.
-    collationNode = ldml.find('collations/collation')
-    if collationNode is not None:
-        collCrNode = collationNode.find('cr')
-        if collCrNode is not None:
-            collationNode.remove(collCrNode)
+    collationNode = ldml.find('collations/collation[@type="standard"]')
+    collationElem = None
+    if dblLdml is not None:
+        collationElem = dblLdml.find('collations/collation[@type="standard"]/special/sil:simple')
+    if ldml.get_draft(collationNode) >= gendraft:
+        replaceColl = True
+        if collationNode is not None:
+            collCrNode = collationNode.find('cr')
+            if collCrNode is not None:
+                collationNode.remove(collCrNode)
+    else:
+        replaceColl = False
 
+    sortSpecString = ''
     if 'lds' in filenames:
         with codecs.getreader("utf-8")(dblObj.project.open(filenames['lds'])) as inf:
-            processLds(ldml, inf, ducetDict)
-    else:
-        _addLdsSsfDataFont(ldml, "", "")
+           sortSpecString = processLds(ldml, inf, ducetDict, replaceColl)
+    elif replaceColl and collationElem is not None:
+        vs = re.sub(r"(\s*\n)+", "\n", collationElem.text)
+        if vs is not None:
+            se = ldml.ensure_path('collations/collation[@type="standard"]/special/sil:simple')[0]
+            se.text = vs
+            vstrings = vs.split("\n")
+            sortSpecString = calcSortLdsData(ldml, vstrings, ducetDict)
+    if len(sortSpecString):
+        collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
+        crElem = ldml.addnode(collationElem, 'cr')
+        crElem.text = sortSpecString
 
     if hasMetaDataFile:
         with dblObj.project.open("metadata.xml") as inf:
@@ -453,7 +510,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         if ltag.script is not None:
             ldml.ensure_path('identity/script[@type="{}"]'.format(ltag.script), draft="unconfirmed")
         if ltag.region is not None:
-            ldml.ensure_path('identity/region[@type="{}"]'.format(ltag.region), draft="unconfirmed")
+            ldml.ensure_path('identity/territory[@type="{}"]'.format(ltag.region), draft="unconfirmed")
         if ltag.vars or ltag.ns:
             bits = []
             if ltag.vars is not None:
@@ -488,54 +545,64 @@ if __name__ == '__main__':
     parser.add_argument('-d','--dblpath',help="Path to local zips of DBL")
     parser.add_argument('-s','--sldrpath',help="Path to SLDR root for testing for CLDR files not to process")
     parser.add_argument('-u','--update',action='store_true',help='Update .zip files in dblpath')
+    parser.add_argument('-m','--map',help="paratext project to langtag map .json")
     parser.add_argument('-L','--lang',help='Only process given language')
-    parser.add_argument('-j','--jobs',type=int,help="Number of parallel processes to run, 0 = default = number of processors")
+    parser.add_argument('-j','--jobs',type=int,default=1,help="Number of parallel processes to run, 0 = default = number of processors")
     parser.add_argument('-z','--zipfile',help='Process a specific .zip file')
     parser.add_argument('--ldml',help='input LDML base file to directly process')
     parser.add_argument('--ssf',help='input SSF file to directly process')
     parser.add_argument('--lds',help='input LDS file to directly process')
-    parser.add_argument('-S','--srcpath',help="Path to a cache of zips to use when downloading")
+    parser.add_argument('-S','--start',help='skip up to an including this langtag')
     parser.add_argument('-l','--loglevel',help='Set logging level')
     parser.add_argument('-D','--debug',action="store_true",help="Enable debug")
+    parser.add_argument('-Z','--zdebug',default=0,type=int,help="bitfield: 1=don't download zips, 2=skip existing")
 
     args = parser.parse_args()
-    ducetDict = ducet.readDucet()
 
     import sys
-    if sys.maxunicode == 0x10FFFF:
-        print('Python built with UCS4 (wide unicode) support')
-    else:
-        print('Python built with UCS2 (narrow unicode) support')
-
-    def processfile(f, l):
-        logging.info("Processing file: {}".format(f))
-        try:
-            processOneProject(f, args.outpath, ducetDict, l, sldrPath=args.sldrpath)
-        except Exception as e:
-            bt = traceback.format_exc(limit=5)
-            logging.error("Error in {}, {}\nType: {} Args: {}".format(f, e, type(e), e.args))
-            logging.error(bt)
-            if args.debug:
-                raise e
-        return True
-
     if args.loglevel:
         logging.basicConfig(stream=sys.stdout, level=args.loglevel.upper(),
                 format="%(levelname)s:%(module)s %(message)s")
 
-    if args.update:
-        rdr = dbl.DBLReader()
-        rdr.download(args.dblpath, lang=args.lang, srcdir=args.srcpath)
-    if args.zipfile is None:
-        filelist = [os.path.join(args.dblpath, f) for f in os.listdir(args.dblpath) if f.endswith(".zip")]
-    else:
-        filelist = [args.zipfile]
-    jobs = sorted(dbl.process_projects(filelist, args.lang))
     if args.jobs == 1:
-        [processfile(*j) for j in jobs]
+        pool = None
     else:
         pool = multiprocessing.Pool(processes=args.jobs)
-        list(pool.starmap_async(processfile, jobs).get())
+    if args.update:
+        rdr = newdbl.DBLReader()
+        rdr.download(args.dblpath, lang=args.lang, nozips=args.zdebug & 1, mapfile=args.map, pool=pool)
+
+    if args.sldrpath is not None:
+        ducetDict = ducet.readDucet()
+        def processfile(f, l):
+            logging.info("Processing file: {}".format(f))
+            try:
+                processOneProject(f, args.outpath, ducetDict, l, sldrPath=args.sldrpath)
+            except Exception as e:
+                bt = traceback.format_exc(limit=5)
+                logging.error("Error in {}, {}\nType: {} Args: {}".format(f, e, type(e), e.args))
+                logging.error(bt)
+                if args.debug:
+                    raise e
+            return True
+
+        if args.zipfile is None:
+            filelist = [os.path.join(args.dblpath, f) for f in os.listdir(args.dblpath) if f.endswith(".zip")]
+        else:
+            filelist = [args.zipfile]
+        jobs = sorted(newdbl.process_projects(filelist, args.lang))
+        if args.start:
+            for i, j in jobs:
+                if j[1] == args.start:
+                    jobs = jobs[i+1:]
+                    break
+        if (args.zdebug & 2) != 0:
+            jobs = [j for j in jobs if not os.path.exists(os.path.join(args.outpath, j[1][0], j[1].replace("-","_")+".xml"))]
+        if pool is None:
+            [processfile(*j) for j in jobs]
+        else:
+            asyncres = pool.starmap_async(processfile, jobs).get()
+            asyncres.wait()
     if False:
         # Just process one set of files that is already present.
         ssfFile = args.ssf

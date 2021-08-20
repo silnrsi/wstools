@@ -36,6 +36,8 @@ from datetime import datetime
 from wsgiref.handlers import format_date_time
 from time import mktime
 
+dblurl='https://api.thedigitalbiblelibrary.org'
+
 try:
     from sldr.ldml_exemplars import Exemplars
 except ImportError:
@@ -43,6 +45,18 @@ except ImportError:
     #newDir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'palaso-python', 'lib', 'palaso'))
     #sys.path.insert(-1, newDir)
     from sldr.ldml_exemplars import Exemplars
+
+# From wsgiref.handlers - HTTP date/time formatting always English!
+_weekdayname = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+_monthname = [None, # Dummy so we can use 1-based month numbers
+              "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+def format_date_time(timestamp):
+    year, month, day, hh, mm, ss, wd, y, z = time.gmtime(timestamp)
+    return "%s, %02d %3s %4d %02d:%02d:%02d GMT" % (
+        _weekdayname[wd], day, _monthname[month], year, hh, mm, ss
+    )
 
 def process_projects(files, filterLangCode=None):
     for filename in files:
@@ -186,7 +200,7 @@ class DBLReader(object):
         
 
     def testAccess(self):
-        response = requests.get('https://thedigitalbiblelibrary.org',
+        response = requests.get(dblurl,
                                 auth=self.auth, headers=self._jsonHeaders())
         return response.status_code
 
@@ -198,7 +212,7 @@ class DBLReader(object):
             return (None, response.status_code)
 
     def getLicenses(self):
-        return self.getjson('https://thedigitalbiblelibrary.org/api/licenses')
+        return self.getjson(dblurl+'/api/licenses')
 
     def getEntries(self, allids=False):
         fullResult = {}
@@ -207,8 +221,8 @@ class DBLReader(object):
         accessTypeKeys = ['owned']
         alllangs = set()
         for accessType in accessTypeKeys:
-            #entriesDict, httpResult = self.getjson('https://thedigitalbiblelibrary.org/api/' + accessType + '_entries_list')
-            entriesDict, httpResult = self.getjson('https://thedigitalbiblelibrary.org/api/entries')
+            #entriesDict, httpResult = self.getjson(dblurl+'/api/' + accessType + '_entries_list')
+            entriesDict, httpResult = self.getjson(dblurl+'/api/entries')
             if httpResult == 200:
                 for entry in entriesDict['entries']:
                     id = entry['id']
@@ -228,14 +242,14 @@ class DBLReader(object):
                     fullResult[id] = (langCode, accessType)
                 return fullResult
             else:
-                return min(httpResult, response.status_code)
+                return httpResult
 
     def downloadOneEntry(self, entryId, langCode, accessType, downloadPath):
         # Get the metadata that includes the license key for reading.
-        entryMetaData, httpResult = self.getjson('https://thedigitalbiblelibrary.org/api/entries/' + entryId)
+        entryMetaData, httpResult = self.getjson(dblurl+'/api/entries/' + entryId)
         if httpResult != 200:
             return httpResult
-        licenses = entryMetaData['licenses']
+        licenses = entryMetaData.get('licenses', '')
         if accessType == 'owned':
             licenseId = "owner"
         elif len(licenses) > 0:
@@ -244,17 +258,17 @@ class DBLReader(object):
             logging.warn(langCode + "_" + entryId + " - no licenses")
             return 403  # forbidden
 
-        entryUrl = 'https://thedigitalbiblelibrary.org/api/entries/' + entryId + "/revisions/latest/licenses/" + licenseId
+        entryUrl = dblurl+'/api/entries/' + entryId + "/revision/latest/license/" + licenseId
         entryData, response = self.getjson(entryUrl)
         if response != 200:
             logging.error(langCode + " - can't access files")
             return response
 
         result = None
-        urlList = entryData['urls']
+        urlList = entryData['list']
         downloadZip = False
         for url in urlList:
-            path = url['path']
+            path = url['uri']
             downloadUrl = None
             ext = path[path.rfind("."):]
             if ext == ".usx":
@@ -266,8 +280,7 @@ class DBLReader(object):
                 logging.warn("Found SFM file!!")
 
         if downloadZip:
-            url = 'https://thedigitalbiblelibrary.org/api/entries/' + entryId + "/revisions/latest/licenses/"  \
-                            + licenseId + ".zip"
+            url = entryData['href'] + "/license/" + licenseId + ".zip"
             response = requests.get(url, auth=self.auth, headers=self._jsonHeaders())
             if response.status_code == 200:
                 downloadFileName = langCode + "_" + entryId + ".zip"
@@ -275,7 +288,7 @@ class DBLReader(object):
                 result = downloadPath + "/" + downloadFileName
                 logging.debug(langCode + " - DOWNLOADED " + downloadFileName)
             else:
-                logging.warn(langCode + " - can't download zip file" + ": " + str(response.status_code))
+                logging.warn(langCode + " - can't download zip file: {}, {}".format(response.status_code, url)) 
         else:
             logging.warn(langCode + " - no usx files")
         return result

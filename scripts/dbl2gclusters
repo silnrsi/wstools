@@ -69,7 +69,7 @@ if args.listlangs:
         (entryLangCode, entryAccessType) = entryInfo
         logging.debug("{} -> {}".format(entryLangCode, entryId))
 else:
-    filelist = [os.path.join(args.dblpath, f) for f in os.listdir(args.dblpath) if f.endswith(".zip")]
+    filelist = [os.path.join(args.inputdir, f) for f in os.listdir(args.inputdir) if f.endswith(".zip")]
     allfiles = list(dbl.process_projects(filelist, args.lang))
     if args.jobs == 100:
         for a in allfiles:

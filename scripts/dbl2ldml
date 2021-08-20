@@ -5,9 +5,9 @@
 
 import sys
 import collections
-import codecs
+import codecs, logging
 import copy
-import os
+import os, io
 import unicodedata
 import xml.etree.cElementTree as et
 
@@ -52,9 +52,9 @@ except ImportError:
     sys.path.append(os.path.abspath(os.path.dirname(__file__) + libPath))
     from palaso.sldr.ldml import Ldml
 
-from palaso.sldr.collation import Collation, CollElement
+from sldr.collation import Collation, CollElement
 ###from sldr.langtags import LangTag
-from langtags import LangTag
+from langtag import LangTag
 try:
     import palaso.sldr.ducet as ducet
 except:
@@ -86,11 +86,13 @@ class DBLAuthV1(requests.auth.AuthBase):
         import hmac
         import hashlib
 
-        mac = hmac.new(self.api_token, None, hashlib.sha1)
+        mac = hmac.new(bytes(self.api_token, "ascii"), None, hashlib.sha1)
         mac.update(bytes(self.signing_string_from_request(request), 'utf-8)'))
-        mac.update(self.private_key.lower())
-        tokenStr = self.api_token.decode('utf-8')
-        return 'version=v1,token=%s,signature=%s' % (tokenStr, mac.hexdigest().lower())
+        mac.update(bytes(self.private_key.lower(), "ascii"))
+        tokenStr = self.api_token
+        res = 'version=v1,token=%s,signature=%s' % (tokenStr, mac.hexdigest().lower())
+        print(res)
+        return res
 
     def signing_string_from_request(self, request):
         dbl_header_prefix = 'x-dbl-'
@@ -136,6 +138,7 @@ class DBLReader(object):
         (key1, key2) = dblauthkey.authkey()
         self.secretKey = key2
         self.auth = DBLAuthV1(key1, key2)
+        print(f"{key1=} {key2=}")
 
     def testAccess(self):
         response = requests.get('https://thedigitalbiblelibrary.org',
@@ -158,6 +161,8 @@ class DBLReader(object):
 
         #accessTypeKeys = ['publishable', 'public', 'open_access', 'owned']
         accessTypeKeys = ['owned']
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        print(self.auth, self._jsonHeaders())
         for accessType in accessTypeKeys:
             response = requests.get('https://thedigitalbiblelibrary.org/api/' + accessType + '_entries_list',
                                 auth=self.auth, headers=self._jsonHeaders())
@@ -172,6 +177,12 @@ class DBLReader(object):
                         if oldAccess != accessType:
                             print("changing " + langCode + "_" + id + " from " + oldAccess + " to " + accessType)
                     fullResult[id] = (langCode, accessType)
+            else:
+                print(type(response), response.headers, getattr(response, 'text', ''))
+                l = int(response.headers.get('Content-Length', 0))
+                if l > 0:
+                    for i in response.iter_lines():
+                        print(i)
             httpResult = min(httpResult, response.status_code)
 
         if httpResult != 200:
@@ -425,7 +436,7 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
             fontElemSuspect = fontElemNode    #ldml.ensure_path(xpath)[0]
             if not 'types' in fontElemSuspect.attrib:
                 fontElemSuspect.attrib['types'] = "default"
-            ldml.change_draft(fontElemSuspect, "suspect")
+            #ldml.change_draft(fontElemSuspect, "suspect")
             fontElemGen = ldml.ensure_path(xpath, draft="generated", matchdraft="draft")[0]
         else:
             # Font values match.
@@ -1001,7 +1012,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode):
                 # mismatch; old value is marked suspect and alt=proposed-dbl, new value is draft
                 chElemSuspect = ldml.ensure_path(xpath)[0]
                 chElemSuspect.text = oldValue
-                ldml.change_draft(chElemSuspect, "suspect")
+                #ldml.change_draft(chElemSuspect, "suspect")
                 chElem = ldml.ensure_path(xpath, draft="generated", matchdraft="draft")[0]
         else:
             # values match; no change
@@ -1125,7 +1136,6 @@ def processProjects(inputPath, outputPath, filterLangCode = '', filterZipFile = 
                 langCode = basename[0:2]
 
             #if langCode != "anv": continue   # TEMPORARY ------------------
-
             if filterLangCode == '' or langCode == filterLangCode:
                 try:
                     print("")
@@ -1137,7 +1147,6 @@ def processProjects(inputPath, outputPath, filterLangCode = '', filterZipFile = 
                     print("ERROR: " + str(err))
                     print(type(err))
                     print(err.args)
-
                 count = count + 1
 
             #if filterZipFile is not None and filterZipFile != '':
@@ -1161,7 +1170,6 @@ def downloadAndProcess(updateDblSource, zipFile, dblPath, inputPath, outputPath)
             print("ERROR: " + str(err))
             print(type(err))
             print(err.args)
-
     else:
         ok = True
 
@@ -1198,11 +1206,6 @@ if __name__ == '__main__':
         ldsFile = args.lds
         outFile = args.outfile
 
-        #ldmlFile = "C:/ChordTeam/DBL2LDML/testdata/zzz/zzz.xml"
-        #ssfFile = "C:/ChordTeam/DBL2LDML/testdata/zzz/zzz.ssf"
-        #ldsFile = "C:/ChordTeam/DBL2LDML/testdata/zzz/zzz.lds"
-        #outFile = "C:/ChordTeam/DBL2LDML/testdata/zzz/zzz_Latn_out.xml"
-
         if ldmlFile:
             ldml = Ldml(ldmlFile)
         else:
@@ -1212,7 +1215,7 @@ if __name__ == '__main__':
             processSsf(ldml, ssfFile)
         if ldsFile:
             #import ducet
-            import collation
+            import sldr.collation
             ducetDict = ducet.readDucet()
             processLds(ldml, ldsFile, ducetDict)
         if outFile:
