@@ -4,7 +4,7 @@
 # Given the right options, can also download the Paratext files from the DBL.
 
 import sys, traceback
-import codecs
+import codecs, copy
 import os, re
 import logging
 import multiprocessing
@@ -13,13 +13,14 @@ from io import StringIO
 from configparser import RawConfigParser
 from xml.etree import ElementTree as etree
 import xml.etree.cElementTree as et
+from sldr import UnicodeSets
 
 # For calling DBLAuthV1 class:
 # The requests module may need to be installed separately; it does not appear to be part of the standard Python.
 from datetime import datetime
 from time import mktime
 from langtag import lookup, langtag
-from sldr.ldml_exemplars import Exemplars
+from sldr.ldml_exemplars import Exemplars, UCD
 from sldr.ldml import Ldml, draftratings
 from sldr.collation import Collation, CollElement
 import palaso.sldr.ducet as ducet
@@ -36,6 +37,28 @@ gendraft = draftratings.get('generated', 5)
 
 def gettext(e):
     return e.text if e is not None else ''
+
+class Puamap:
+
+    start = 0xF134
+    mapstr = "⌊⌋                                                          ᷂᷊᷽᷄᷅᷆᷇᷈᷉̈͜͞    ᵐᶮᵑᵃᵄᵅᵇᵈᵉᵊᵋᶟᵍᵏᵒᵓᵖᵗᵘᵚᵛˋˈˊꜗꜘꜙꜚꜛꜜꜝꜞᶛ𐞃ᶝ𐞎𐞏ᶠᶢᶤᶦᶡᶩ𐞢ᶱꟹ𐞣ᶴᶶᶷᶭᶺ𐞲𐞑ᶻᶽᶾᶜᶞᶣ𐞕ᶨᶪᶫᶬᶯᶰᶲᶳᶵᶹᶼˀᶿᶥᶧᶸ 𐞠 ꜒꜓꜔꜕꜖꜈꜉꜊꜋꜌꜍꜎꜏꜐꜑꜀꜂꜄꜆꜁꜃꜅꜇ꞈˬ꞉꞊                     ᴀȡᴇȴȵȶʮʯⱭⱰɃȼᶑ ⱡⱠᵽɋɊɍɌⱤᶘƷɄɅⱳⱲᶚꞌɂȽɇɆⱨⱧᶀꞔᶁᶂᶃᶄᶅᶆᶇᶈᶉᶊᶋᶌᶍᶎꟆ𝼘ᶏᶐᶒᶓᶔᶕᶖᶗᶙᵾȸȹⱢɏɎꜫꜭⓐⒶᵬᵭᵮᵯᵰᵱᵲᵳᵴᵵᵶᵻᵿȿɀ  ꜧⱮⱣᵼⱴⱱɉɈⱪⱩⱬⱫꞎ𝼆𝼄𝼈ꞋꞍꞲ                                                                                                                                                   ׆ׅ                              ӶӷԒԓӼӽ  ӾӿԐԑԦ"
+    def __init__(self):
+        ranges = []
+        s = None
+        for i, c in enumerate(self.mapstr):
+            if c == " ":
+                if s is not None:
+                    ranges.append([s, i])
+                s = None
+            elif s is None:
+                s = i
+        self.re = re.compile("["+"".join("{}-{}".format(chr(self.start+r[0]), chr(self.start+r[1])) for r in ranges) + "]")
+        self.ucd = UCD()
+
+    def __call__(self, s):
+        return self.ucd.normalize('NFC', self.re.sub(lambda m:self.mapstr[ord(m.group(0)) - self.start], s))
+
+puamap = Puamap()
 
 ssfmap = {
     # LanguageIsoCode is passed in
@@ -194,9 +217,9 @@ def processLds(ldml, ldsFile, ducetDict, replaceColl):
 
     if replaceColl:
         simpleColls = readLdsCollation(ldsConfig)
-        sortSpecString = calcSortLdsData(ldml, simpleColls, ducetDict)
-        return sortSpecString
-    return ""
+        (sortColl, alphabet) = calcSortLdsData(ldml, simpleColls, ducetDict)
+        return (sortColl, alphabet)
+    return (None, None)
 
 
 def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
@@ -311,6 +334,8 @@ def calcSortLdsData(ldml, valueList, ducetDict) :
     sortResult = []
     collObj = Collation(ducetDict)
     alphabet = []
+    simple = True
+    simplelist = list("abcdefghijklmnopqrstuvwxyz'")
     if len(valueList) > 0 :
         currBase = None
         for value in valueList :
@@ -335,6 +360,17 @@ def calcSortLdsData(ldml, valueList, ducetDict) :
                     if ducet.ducetCompare(ducetDict, c1, c2) == 3 : # case equivalent with x <<< X
                         # Assume a typo where they left out the slash.
                         slashItems = [c1, c2]
+                if len(slashItems) == 1 and len(slashItems[0]) > 1 and len(slashItems[0]) < 10:
+                    s = slashItems[0]
+                    slashSet = set()
+                    if sum(1 if c.lower() == c else 0 for c in s) == len(s):
+                        for i in range(2 ** len(s)):
+                            slashSet.add("".join(c.upper() if (i & (1 << j)) != 0 else c for j,c in enumerate(s)))
+                        slashSet.remove(s)
+                        slashItems.extend(slashSet)
+                if simple:
+                    if not len(simplelist) or slashItems[0] != simplelist.pop(0):
+                        simple = False
                 for s in slashItems:
                     if currBase is not None:
                         try:
@@ -345,9 +381,8 @@ def calcSortLdsData(ldml, valueList, ducetDict) :
                     currBase = s
                     alphabet.append(s)
                 currLevel = 2
-    collObj.minimise(alphabet)
     # print(collObj.asICU())
-    return collObj.asICU()
+    return (collObj, alphabet) if not simple else (None, None)
 
 def cleanUpOldSortSpec(oldValue):
     newValue = oldValue.replace('\/', '/')
@@ -419,27 +454,82 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
 
     ldml.uid = "dbl"  # generates alt="proposed-dbl"
 
+    # Any <cr> element in <collation> is suspect. In fact, just go ahead and delete it.
+    nosort = True
+    sortColl = None
+    collationNode = ldml.find('collations/collation[@type="standard"]')
+    collationElem = None
+    if dblLdml is not None:
+        collationElem = dblLdml.find('collations/collation[@type="standard"]/special/sil:simple')
+        nosort = False
+    if ldml.get_draft(collationNode) >= gendraft:
+        replaceColl = True
+        if collationNode is not None:
+            collCrNode = collationNode.find('cr')
+            if collCrNode is not None:
+                collationNode.remove(collCrNode)
+    else:
+        replaceColl = False
+
+    sortSpecString = ''
+    if 'lds' in filenames:
+        with codecs.getreader("utf-8")(dblObj.project.open(filenames['lds'])) as inf:
+           (sortColl, alphabet) = processLds(ldml, inf, ducetDict, replaceColl)
+    elif replaceColl and collationElem is not None:
+        vs = re.sub(r"(\s*\n)+", "\n", collationElem.text)
+        if vs is not None:
+            se = ldml.ensure_path('collations/collation[@type="standard"]/special/sil:simple')[0]
+            se.text = vs
+            vstrings = [puamap(s) for s in vs.split("\n")]
+            (sortColl, alphabet) = calcSortLdsData(ldml, vstrings, ducetDict)
+    if sortColl is not None:
+        thisColl = copy.deepcopy(sortColl)
+        thisColl.minimise(alphabet)
+        sortSpecString = thisColl.asICU()
+        if len(sortSpecString):
+            collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
+            crElem = ldml.addnode(collationElem, 'cr')
+            crElem.text = sortSpecString
+    elif not nosort:   # delete the collation
+        if collationNode is not None:
+            collNode = collationNode.parent
+            collNode.remove(collationNode)
+            if not len(collNode):
+                collNode.parent.remove(collNode)
+
     exemplars = Exemplars()
     exemplars.frequent = 0.0
     for t in dblObj.analyze_text():
         exemplars.process(t)
     exemplars.analyze()
+    exemplars.normalize("NFC")
+    if sortColl is not None:
+        sortColl._setSortKeys()
+        exemplars.collator = sortColl
 
-    for t in ('main', 'auxiliary', 'index', 'punctuation'):
+    for t in ('auxiliary', 'main', 'index', 'punctuation'):     # order is important
+        if t == 'main':
+            key = ''
+            exemplars._main -= exemplars._auxiliary
         key = '' if t == 'main' else t
         xpath = 'characters/exemplarCharacters[@type="' + key + '"]'
         oldValue, oldDraft = exemplarinfo.get(key, ('', 6))
-        newValue = getattr(exemplars, t)
+        newValue = puamap(getattr(exemplars, t))        # sort these perhaps in analyze?
+        oldSets = UnicodeSets.parse(oldValue)
+        oldSet = oldSets[0].asSet() if len(oldSets) else set()
+        newSet = getattr(exemplars, "_"+t)
         chElem = None
         if oldValue == '':
             if newValue != "[]":
                 # no previous value; mark new value generated
                 chElem = ldml.ensure_path(xpath)[0]
-        elif newValue != oldValue:
+        elif newSet != oldSet:
             if oldValue == "[]" or oldDraft >= gendraft:
                 # Throw away old empty value
                 chElem = ldml.ensure_path(xpath)[0]
                 ldml.change_draft(chElem, "generated")
+            elif oldDraft < gendraft:
+                setattr(exemplars, t, oldValue)
         else:
             # values match; no change
             chElem = ldml.ensure_path(xpath)[0]
@@ -462,35 +552,6 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     if ssf is not None:
         ssf.process(ldml)
 
-    # Any <cr> element in <collation> is suspect. In fact, just go ahead and delete it.
-    collationNode = ldml.find('collations/collation[@type="standard"]')
-    collationElem = None
-    if dblLdml is not None:
-        collationElem = dblLdml.find('collations/collation[@type="standard"]/special/sil:simple')
-    if ldml.get_draft(collationNode) >= gendraft:
-        replaceColl = True
-        if collationNode is not None:
-            collCrNode = collationNode.find('cr')
-            if collCrNode is not None:
-                collationNode.remove(collCrNode)
-    else:
-        replaceColl = False
-
-    sortSpecString = ''
-    if 'lds' in filenames:
-        with codecs.getreader("utf-8")(dblObj.project.open(filenames['lds'])) as inf:
-           sortSpecString = processLds(ldml, inf, ducetDict, replaceColl)
-    elif replaceColl and collationElem is not None:
-        vs = re.sub(r"(\s*\n)+", "\n", collationElem.text)
-        if vs is not None:
-            se = ldml.ensure_path('collations/collation[@type="standard"]/special/sil:simple')[0]
-            se.text = vs
-            vstrings = vs.split("\n")
-            sortSpecString = calcSortLdsData(ldml, vstrings, ducetDict)
-    if len(sortSpecString):
-        collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
-        crElem = ldml.addnode(collationElem, 'cr')
-        crElem.text = sortSpecString
 
     if hasMetaDataFile:
         with dblObj.project.open("metadata.xml") as inf:
@@ -564,6 +625,18 @@ if __name__ == '__main__':
         logging.basicConfig(stream=sys.stdout, level=args.loglevel.upper(),
                 format="%(levelname)s:%(module)s %(message)s")
 
+    def processfile(f, l, ducetDict):
+        logging.info("Processing file: {}".format(f))
+        try:
+            processOneProject(f, args.outpath, ducetDict, l, sldrPath=args.sldrpath)
+        except Exception as e:
+            bt = traceback.format_exc(limit=5)
+            logging.error("Error in {}, {}\nType: {} Args: {}".format(f, e, type(e), e.args))
+            logging.error(bt)
+            if args.debug:
+                raise e
+        return True
+
     if args.jobs == 1:
         pool = None
     else:
@@ -574,25 +647,14 @@ if __name__ == '__main__':
 
     if args.sldrpath is not None:
         ducetDict = ducet.readDucet()
-        def processfile(f, l):
-            logging.info("Processing file: {}".format(f))
-            try:
-                processOneProject(f, args.outpath, ducetDict, l, sldrPath=args.sldrpath)
-            except Exception as e:
-                bt = traceback.format_exc(limit=5)
-                logging.error("Error in {}, {}\nType: {} Args: {}".format(f, e, type(e), e.args))
-                logging.error(bt)
-                if args.debug:
-                    raise e
-            return True
 
         if args.zipfile is None:
             filelist = [os.path.join(args.dblpath, f) for f in os.listdir(args.dblpath) if f.endswith(".zip")]
         else:
             filelist = [args.zipfile]
-        jobs = sorted(newdbl.process_projects(filelist, args.lang))
+        jobs = [j+(ducetDict, ) for j in sorted(newdbl.process_projects(filelist, args.lang))]
         if args.start:
-            for i, j in jobs:
+            for i, j in enumerate(jobs):
                 if j[1] == args.start:
                     jobs = jobs[i+1:]
                     break
