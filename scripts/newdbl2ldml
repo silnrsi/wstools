@@ -464,7 +464,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         nosort = False
     if ldml.get_draft(collationNode) >= gendraft:
         replaceColl = True
-        if collationNode is not None:
+        if collationNode is not None and ldml.get_draft(collationNode) > gendraft:
             collCrNode = collationNode.find('cr')
             if collCrNode is not None:
                 collationNode.remove(collCrNode)
@@ -478,10 +478,11 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     elif replaceColl and collationElem is not None:
         vs = re.sub(r"(\s*\n)+", "\n", collationElem.text)
         if vs is not None:
-            se = ldml.ensure_path('collations/collation[@type="standard"]/special/sil:simple')[0]
-            se.text = vs
             vstrings = [puamap(s) for s in vs.split("\n")]
             (sortColl, alphabet) = calcSortLdsData(ldml, vstrings, ducetDict)
+        if alphabet is not None:
+            se = ldml.ensure_path('collations/collation[@type="standard"]/special/sil:simple')[0]
+            se.text = vs
     if sortColl is not None:
         thisColl = copy.deepcopy(sortColl)
         thisColl.minimise(alphabet)
@@ -528,11 +529,8 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                 # Throw away old empty value
                 chElem = ldml.ensure_path(xpath)[0]
                 ldml.change_draft(chElem, "generated")
-            elif oldDraft < gendraft:
+            elif t == 'auxiliary' and oldDraft < gendraft:
                 setattr(exemplars, t, oldValue)
-        else:
-            # values match; no change
-            chElem = ldml.ensure_path(xpath)[0]
         if chElem is not None:
             chElem.text = newValue
 
@@ -664,7 +662,6 @@ if __name__ == '__main__':
             [processfile(*j) for j in jobs]
         else:
             asyncres = pool.starmap_async(processfile, jobs).get()
-            asyncres.wait()
     if False:
         # Just process one set of files that is already present.
         ssfFile = args.ssf
