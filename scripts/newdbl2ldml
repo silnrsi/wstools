@@ -13,7 +13,7 @@ from io import StringIO
 from configparser import RawConfigParser
 from xml.etree import ElementTree as etree
 import xml.etree.cElementTree as et
-from sldr import UnicodeSets
+from sldr import UnicodeSets, ducet
 
 # For calling DBLAuthV1 class:
 # The requests module may need to be installed separately; it does not appear to be part of the standard Python.
@@ -23,7 +23,6 @@ from langtag import lookup, langtag
 from sldr.ldml_exemplars import Exemplars, UCD
 from sldr.ldml import Ldml, draftratings
 from sldr.collation import Collation, CollElement
-import palaso.sldr.ducet as ducet
 
 try:
     import newdbl
@@ -141,10 +140,12 @@ class Ssf:
     def _addSsfDataPairs(self, ldml, pairsValue) :
         # Pairs ->
         # delimiters/special/sil:matched-pairs/sil:matched-pair/@open, @close
+        pairs = set(tuple(x.split('/')) for x in pairsValue.split(' '))
+        if not len(pairs):
+            return
         matchedElem = ldml.ensure_path('delimiters/special/sil:matched-pairs')[0]
         if ldml.get_draft(matchedElem) < gendraft:
             return
-        pairs = set(tuple(x.split('/')) for x in pairsValue.split(' '))
         for e in list(matchedElem):
             t = (e.get('open', ''), e.get('close', ''))
             if t not in pairs:
@@ -230,6 +231,9 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
     # Or (more likely) this might come from the .lds file.
 
     xpath = 'special/sil:external-resources/sil:font[@types="default"][@name="{}"]'.format(defaultFontValue)
+    allfonts = set([e.get('name') for e in ldml.findall('special/sil:external-resources/sil:font')])
+    if defaultFontValue in allfonts:
+        return
 
     defaultSizeFactor = 1.0
     if defaultSizeValue:
@@ -368,6 +372,7 @@ def calcSortLdsData(ldml, valueList, ducetDict) :
                             slashSet.add("".join(c.upper() if (i & (1 << j)) != 0 else c for j,c in enumerate(s)))
                         slashSet.remove(s)
                         slashItems.extend(slashSet)
+                slashItems.sort(key=ducet.keyfn(ducetDict, 3))
                 if simple:
                     if not len(simplelist) or slashItems[0] != simplelist.pop(0):
                         simple = False
@@ -464,9 +469,9 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         nosort = False
     if ldml.get_draft(collationNode) >= gendraft:
         replaceColl = True
-        if collationNode is not None and ldml.get_draft(collationNode) > gendraft:
+        if collationNode is not None and ldml.get_draft(collationNode) >= gendraft:
             collCrNode = collationNode.find('cr')
-            if collCrNode is not None:
+            if collCrNode is not None and collationNode.find('special/{{{}}}simple'.format(ldml.silns)) is not None:
                 collationNode.remove(collCrNode)
     else:
         replaceColl = False
@@ -482,17 +487,18 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
             (sortColl, alphabet) = calcSortLdsData(ldml, vstrings, ducetDict)
         if alphabet is not None:
             se = ldml.ensure_path('collations/collation[@type="standard"]/special/sil:simple')[0]
-            se.text = vs
+            se.text = puamap(vs)
     if sortColl is not None:
         thisColl = copy.deepcopy(sortColl)
         thisColl.minimise(alphabet)
         sortSpecString = thisColl.asICU()
         if len(sortSpecString):
             collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
-            crElem = ldml.addnode(collationElem, 'cr')
+            crElem = ldml.addnode(collationElem, 'cr', returnnew=True)
             crElem.text = sortSpecString
     elif not nosort:   # delete the collation
-        if collationNode is not None:
+        # only delete collation if the original was a simple sort. If hand crafted, keep it.
+        if collationNode is not None and collationNode.find('special/{{{}}}simple'.format(ldml.silns)) is not None:
             collNode = collationNode.parent
             collNode.remove(collationNode)
             if not len(collNode):
