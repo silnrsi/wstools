@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+
+import argparse, re, os, multiprocessing, sys
+import zipfile
+import xml.etree.ElementTree as et
+
+def processzip(infile, actions, quiet=False):
+    usesource = False
+    res = {'file': infile}
+    z = zipfile.ZipFile(infile)
+    if not quiet:
+        print(infile)
+    for f in z.namelist():
+        if f.endswith("source.zip"):
+            continue
+        for k, (r, a) in actions.items():
+            if k.startswith("source:"):
+                usesource = True
+                continue
+            if r.match(f):
+                with z.open(f) as s:
+                    res[k] = a(s)
+    if usesource:
+        try:
+            sz = z.open("source/source.zip")
+        except KeyError:
+            return res
+        zs = zipfile.ZipFile(sz)
+        for f in zs.namelist():
+            for k, (r, a) in actions.items():
+                if not k.startswith("source:"):
+                    continue
+                if r.match(f):
+                    with zs.open(f) as s:
+                        res[k[7:]] = a(s)
+    return res
+
+parser = argparse.ArgumentParser()
+parser.add_argument('match',help='Regexp to match against')
+parser.add_argument('-D','--dbldir',default=os.getenv('DBLDIR', None),help="Directory of dbl zips")
+parser.add_argument('-j','--jobs',type=int,default=multiprocessing.cpu_count(),help='multiprocessing, set -j1 to turn off')
+parser.add_argument('-p','--path',help='xpath to get text match')
+parser.add_argument('-f','--file',help='file regexp to match to test in')
+parser.add_argument('-s','--source',action='store_true',help="Search in source.zip")
+parser.add_argument('-n','--number',action='store_true',help='Return match counts per file')
+parser.add_argument('-o','--outfile',help='output file for results')
+parser.add_argument('-F','--format',help='output file format')
+parser.add_argument('-z','--zeros',action='store_true',help='output entries even for non matching zips')
+parser.add_argument('-d','--dblmatch',help='Constrain zips to those matching this regexp')
+parser.add_argument('-q','--quiet',action='store_true',help="Don't report progress")
+args = parser.parse_args()
+
+actions = {}
+
+def nametest(f):
+    doc = et.parse(f)
+    name = doc.findtext("Name")
+    ltag = doc.findtext('LanguageIsoCode').replace(":", "-").rstrip("-")
+    if ltag:
+        res = f"{name}({ltag})"
+    else:
+        res = name
+    return res
+
+actions["source:name"] = (re.compile("Settings.xml"), nametest)
+
+m = re.compile(args.match)
+if args.file:
+    fm = re.compile(args.file)
+else:
+    fm = None
+if args.path:
+    def xtest(f):
+        res = []
+        doc = et.parse(f)
+        for e in doc.findall(args.path):
+            if m.search(e.text):
+                res.append(e.text)
+        return res
+    a = xtest
+    db = r"\.xml$"
+else:
+    def mtest(f):
+        res = []
+        for i, l in f.readlines():
+            if m.search(l):
+                res.append(l.strip())
+        return res
+    a = mtest
+    db = ".*"
+    
+k = ("source:" if args.source else "") + "result"
+if fm is not None:
+    actions[k] = (fm, a)
+else:
+    actions[k] = (re.compile(db), a)
+
+dm = re.compile(args.dblmatch) if args.dblmatch else None
+jobs = []
+
+for dp, dn, fn in os.walk(args.dbldir):
+    for f in fn:
+        if dm is not None and not dm.match(f):
+            continue
+        if not f.endswith(".zip"):
+            continue
+        jobs.append(os.path.join(dp, f))
+
+if args.jobs != 1:
+    def doit(j):
+        return processzip(j, actions, quiet=args.quiet)
+    pool = multiprocessing.Pool(processes=args.jobs)
+    results = pool.map_async(doit, jobs).get()
+else:
+    results = [processzip(j, actions, quiet=args.quiet) for j in jobs]
+
+if not args.zeros:
+    results = [r for r in results if len(r) > 1]
+
+if args.number:
+    for r in results:
+        if 'result' in r:
+            r['result'] = len(r['result'])
+results.sort(key=lambda r:(r.get('name', ''), r.get('file', '')))
+
+if args.outfile:
+    outf = open(args.outfile, "w", encoding="utf-8")
+    if args.format is None:
+        (base, ext) = args.outfile.rsplit(".", 1)
+        args.format = ext.lower()
+else:
+    outf = sys.stdout
+
+if args.format == "csv":
+    import csv
+    dw = csv.DictWriter(outf, ["name"] + sorted(x for x in results[0].keys() if x != "name"))
+    dw.writeheader()
+    dw.writerows(results)
+elif args.format == "json":
+    import json
+    json.dump(results, outf, ensure_ascii=False, indent=4)
+else:
+    for r in results:
+        name = r.get("name", [r.get('file', "Unk")])[0]
+        if r[1]:
+            t = (r[1].get(("xpath" if args.path else "text"), []) + [None])[0]
+        else:
+            t = None
+        if args.zeros or t is not None and len(t):
+            outf.write("{}:\t{}\n".format(name, t))
+
+if args.outfile:
+    outf.close()
+
