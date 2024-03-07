@@ -76,10 +76,13 @@ def getdblkeys():
     except ImportError:
         pass
     else:
-        key1 = keyring.get_password("DBL", "key1")
-        key2 = keyring.get_password("DBL", "key2")
-        if key1 is not None and key2 is not None:
-            return (key1, key2)
+        try:
+            key1 = keyring.get_password("DBL", "key1")
+            key2 = keyring.get_password("DBL", "key2")
+            if key1 is not None and key2 is not None:
+                return (key1, key2)
+        except keyring.errors.NoKeyringError:
+            pass
 
     try:
         import dblauthkey
