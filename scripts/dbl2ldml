@@ -205,7 +205,10 @@ def processLds(ldml, ldsFile, ducetDict, replaceColl):
     if ldsFile.peek(3)[:3] == b"\xef\xbb\xbf":
         ldsFile.read(1)
     ldsConfig = RawConfigParser()
-    ldsConfig.read_file(ldsFile)
+    try:
+        ldsConfig.read_file(ldsFile)
+    except:
+        return (None, None)
 
     if ldsConfig.has_section('General'):
         fontValue = None
@@ -491,12 +494,15 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
             se.text = puamap(vs)
     if sortColl is not None:
         thisColl = copy.deepcopy(sortColl)
-        thisColl.minimise(alphabet)
-        sortSpecString = thisColl.asICU()
-        if len(sortSpecString):
-            collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
-            crElem = ldml.addnode(collationElem, 'cr', returnnew=True)
-            crElem.text = sortSpecString
+        try:
+            thisColl.minimise(alphabet)
+            sortSpecString = thisColl.asICU()
+            if len(sortSpecString):
+                collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
+                crElem = ldml.addnode(collationElem, 'cr', returnnew=True)
+                crElem.text = sortSpecString
+        except:
+            pass
     elif not nosort:   # delete the collation
         # only delete collation if the original was a simple sort. If hand crafted, keep it.
         if collationNode is not None and collationNode.find('special/{{{}}}simple'.format(ldml.silns)) is not None:
@@ -512,8 +518,11 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     exemplars.analyze()
     exemplars.normalize("NFC")
     if sortColl is not None:
-        sortColl._setSortKeys()
-        exemplars.collator = sortColl
+        try:
+            sortColl._setSortKeys()
+            exemplars.collator = sortColl
+        except:
+            pass
 
     for t in ('auxiliary', 'main', 'index', 'punctuation'):     # order is important
         if t == 'main':
