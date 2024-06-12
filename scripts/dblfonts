@@ -27,8 +27,12 @@ for f in filelist:
         ldml = Ldml(filep)
     filename = os.path.basename(ldml.fname)
     lang = ldml.root.find('.//identity/language').get('type')
-    i = ldml.root.find(".//identity/special/sil:identity", {v:k for k,v in ldml.namespaces.items()}) 
-    script = i.get("script")
+    script = ldml.root.find('.//identity/script')
+    if script != None: 
+        script = script.get('type')
+    else: 
+        i = ldml.root.find(".//identity/special/sil:identity", {v:k for k,v in ldml.namespaces.items()}) 
+        script = i.get("script")
     if script not in ["Beng", "Deva", "Gujr", "Guru", "Knda", "Mlym", "Orya", "Taml", "Telu", "Thaa", "Sinh", "Limb", "Lepc", "Gong", "Gonm", "Sylo", "Saur"]:
         #edit the above list however you need, maybe add an argparser for actually putting them in via command line later
         continue

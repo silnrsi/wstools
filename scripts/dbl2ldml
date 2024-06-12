@@ -201,13 +201,14 @@ def _valueNotNo(value) :
         return False
     return True
 
-def processLds(ldml, ldsFile, ducetDict, replaceColl):
+def processLds(ldml, ldsFile, ducetDict, replaceColl, filename):
     if ldsFile.peek(3)[:3] == b"\xef\xbb\xbf":
         ldsFile.read(1)
     ldsConfig = RawConfigParser()
     try:
         ldsConfig.read_file(ldsFile)
     except:
+        logging.debug("Unable to read lds file in {}".format(filename))
         return (None, None)
 
     if ldsConfig.has_section('General'):
@@ -222,7 +223,7 @@ def processLds(ldml, ldsFile, ducetDict, replaceColl):
 
     if replaceColl:
         simpleColls = readLdsCollation(ldsConfig)
-        (sortColl, alphabet) = calcSortLdsData(ldml, simpleColls, ducetDict)
+        (sortColl, alphabet) = calcSortLdsData(ldml, filename, simpleColls, ducetDict)
         return (sortColl, alphabet)
     return (None, None)
 
@@ -337,13 +338,14 @@ def readLdsCollation(ldsConfig):
             cntr = cntr + 1
     return valueList
 
-def calcSortLdsData(ldml, valueList, ducetDict) :
+def calcSortLdsData(ldml, filename, valueList, ducetDict) :
     # Generate a data structure similar to a sort tailoring for the list of characters.
     sortResult = []
     collObj = Collation(ducetDict)
     alphabet = []
     simple = True
     simplelist = list("abcdefghijklmnopqrstuvwxyz'")
+    charError = False
     if len(valueList) > 0 :
         currBase = None
         for value in valueList :
@@ -376,7 +378,12 @@ def calcSortLdsData(ldml, valueList, ducetDict) :
                             slashSet.add("".join(c.upper() if (i & (1 << j)) != 0 else c for j,c in enumerate(s)))
                         slashSet.remove(s)
                         slashItems.extend(slashSet)
-                slashItems.sort(key=ducet.keyfn(ducetDict, 3))
+                try:
+                    slashItems.sort(key=ducet.keyfn(ducetDict, 3))
+                    slashItems.reverse()
+                except TypeError:
+                    charError = True
+                    pass
                 if simple:
                     if not len(simplelist) or slashItems[0] != simplelist.pop(0):
                         simple = False
@@ -391,6 +398,8 @@ def calcSortLdsData(ldml, valueList, ducetDict) :
                     alphabet.append(s)
                 currLevel = 2
     # print(collObj.asICU())
+    if charError:
+            logging.debug("Unrecognized character(s) in simple collation for {}; recommend manually confirming collation is correct".format(filename))
     return (collObj, alphabet) if not simple else (None, None)
 
 def cleanUpOldSortSpec(oldValue):
@@ -425,9 +434,58 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     dblLdml = None
     ltagp = None
     ssf = None
+    lang = None
+    
+    try:
+        ltag = langtag(str(lookup(langCode).tag))
+    except KeyError:
+        ltag = langtag(langCode)
+    r = str(ltag).rfind('-')
+    if r > 0:
+        lang = str(ltag)[:r]
+    else: 
+        lang = str(ltag)
+
+    exemplars = Exemplars()
+    exemplars.frequent = 0.0
+    for t in dblObj.analyze_text():
+        exemplars.process(t)
+    exemplars.analyze()
+    exemplars.normalize("NFC")
+    if len(exemplars.script) > 0: 
+        # for cases where the translation text is for a more specific locale than the "encompassed" one from the langCode, i.e. file might say "wsg" but the locale is actually "wsg_Telu"
+        exemplarlangcode = lang + "-" + exemplars.script
+        try:
+            exemplartag = langtag(str(lookup(exemplarlangcode).tag))
+        except KeyError: 
+            exemplartag = langtag(exemplarlangcode)
+        if exemplartag != ltag: 
+            langCode = exemplartag
+
     if 'ldml' in filenames:
         with dblObj.project.open(filenames['ldml']) as inf:
             dblLdml = Ldml(inf)
+            # for cases where the ldml file is for a more specific locale than the "encompassed" one from the langCode
+            # technically this might be more of a flaw in newdbl.py "process_projects" function which yields the langCode but this is a bandaid fix. 
+            # this fix might also end up being more robust for cases where multiple locales are in the same language project (i.e. multi-script projects)
+            if len(exemplars.script) == 0:      # currently only in cases where script can't be gotten from the usx files
+                ldmllang = dblLdml.root.find('.//identity/language')
+                ldmlscript = dblLdml.root.find('.//identity/script')
+                ldmlterritory = dblLdml.root.find('.//identity/ldmlterritory')
+                ldmllangcode = None
+                if ldmllang != None: 
+                    ldmllangcode = ldmllang.get('type')
+                    if ldmlscript != None: 
+                        ldmllangcode = ldmllangcode + "-" + ldmlscript.get('type')
+                    if ldmlterritory != None: 
+                        ldmllangcode = ldmllangcode + "-" + ldmlterritory.get('type')
+                if ldmllangcode != None:
+                    try:
+                        ldmltag = langtag(str(lookup(ldmllangcode).tag))
+                    except KeyError: 
+                        ldmltag = langtag(ldmllangcode)
+                    if ldmllang.get('type') == lang and ldmltag != ltag:       # checks against 'lang' to avoid cases when the only ldml file in the project isn't for the language at all
+                        langCode = ldmltag      
     if 'ssf' in filenames:
         with dblObj.project.open(filenames['ssf']) as inf:
             ssf = Ssf()
@@ -447,7 +505,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         testpath = os.path.join(sldrPath, outfname[0], outfname)
         if os.path.exists(testpath):
             ldml = Ldml(testpath)
-            identity = ldml.find(".//{{{}}}identity".format(silns['sil']))
+            identity = ldml.root.find(".//identity/special/sil:identity", {v:k for k,v in ldml.namespaces.items()})
             if identity is not None and identity.get("source", "") == "cldr":
                 logging.debug("Skipping {} since in CLDR".format(filename))
                 return
@@ -483,25 +541,26 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     sortSpecString = ''
     if 'lds' in filenames:
         with codecs.getreader("utf-8")(dblObj.project.open(filenames['lds'])) as inf:
-           (sortColl, alphabet) = processLds(ldml, inf, ducetDict, replaceColl)
+           (sortColl, alphabet) = processLds(ldml, inf, ducetDict, replaceColl, filename)
     elif replaceColl and collationElem is not None:
         vs = re.sub(r"(\s*\n)+", "\n", collationElem.text)
         if vs is not None:
             vstrings = [puamap(s) for s in vs.split("\n")]
-            (sortColl, alphabet) = calcSortLdsData(ldml, vstrings, ducetDict)
+            (sortColl, alphabet) = calcSortLdsData(ldml, filename, vstrings, ducetDict)
         if alphabet is not None:
             se = ldml.ensure_path('collations/collation[@type="standard"]/special/sil:simple')[0]
             se.text = puamap(vs)
     if sortColl is not None:
         thisColl = copy.deepcopy(sortColl)
         try:
-            thisColl.minimise(alphabet)
+            thisColl.minimise(alphabet)     # this is the current problem child
             sortSpecString = thisColl.asICU()
             if len(sortSpecString):
                 collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
                 crElem = ldml.addnode(collationElem, 'cr', returnnew=True)
                 crElem.text = sortSpecString
-        except:
+        except Exception as errorname:
+            logging.debug("Unable to create ldml collation for {}; collation being skipped for now: ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
             pass
     elif not nosort:   # delete the collation
         # only delete collation if the original was a simple sort. If hand crafted, keep it.
@@ -511,17 +570,12 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
             if not len(collNode):
                 collNode.parent.remove(collNode)
 
-    exemplars = Exemplars()
-    exemplars.frequent = 0.0
-    for t in dblObj.analyze_text():
-        exemplars.process(t)
-    exemplars.analyze()
-    exemplars.normalize("NFC")
     if sortColl is not None:
         try:
-            sortColl._setSortKeys()
+            sortColl._setSortKeys()     # this is the current problem child the second
             exemplars.collator = sortColl
         except:
+            logging.debug("Unable to create ldml collation for {}; bug with '._setSortKeys' in 'collation.py' in sldrtools, collation being skipped for now".format(filename))
             pass
 
     for t in ('auxiliary', 'main', 'index', 'punctuation'):     # order is important
@@ -585,7 +639,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         if ltag.script is not None:
             ldml.ensure_path('identity/script[@type="{}"]'.format(ltag.script), draft="unconfirmed")
         if ltag.region is not None:
-            ldml.ensure_path('identity/territory[@type="{}"]'.format(ltag.region), draft="unconfirmed")
+            ldml.ensure_path('identity/ldmlterritory[@type="{}"]'.format(ltag.region), draft="unconfirmed")
         if ltag.vars or ltag.ns:
             bits = []
             if ltag.vars is not None:
