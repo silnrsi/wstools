@@ -370,7 +370,8 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict) :
                     if ducet.ducetCompare(ducetDict, c1, c2) == 3 : # case equivalent with x <<< X
                         # Assume a typo where they left out the slash.
                         slashItems = [c1, c2]
-                if len(slashItems) == 1 and len(slashItems[0]) > 1 and len(slashItems[0]) < 10:
+                if len(slashItems) == 1 and len(slashItems[0]) < 10 and slashItems[0] not in ['ß']:        
+                    # previously, the third requirement said 'and len(slashItems[0]) > 1' but was changed to a list of exceptions since it also skipped other characters that were left uncapitalized in the simple collation
                     s = slashItems[0]
                     slashSet = set()
                     if sum(1 if c.lower() == c else 0 for c in s) == len(s):
@@ -391,7 +392,8 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict) :
                     if currBase is not None:
                         try:
                             collObj[s] = CollElement(currBase, currLevel)
-                        except KeyError:
+                        except KeyError as errorname:
+                            #logging.debug("Abnormalities in simple collation in {} ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
                             continue
                     currLevel = 3
                     currBase = s
@@ -399,7 +401,7 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict) :
                 currLevel = 2
     # print(collObj.asICU())
     if charError:
-            logging.debug("Unrecognized character(s) in simple collation for {}; recommend manually confirming collation is correct".format(filename))
+        logging.debug("Unrecognized character(s) in simple collation for {}; recommend manually confirming collation is correct".format(filename))
     return (collObj, alphabet) if not simple else (None, None)
 
 def cleanUpOldSortSpec(oldValue):
@@ -553,15 +555,15 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     if sortColl is not None:
         thisColl = copy.deepcopy(sortColl)
         try:
-            thisColl.minimise(alphabet)     # this is the current problem child
-            sortSpecString = thisColl.asICU()
-            if len(sortSpecString):
-                collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
-                crElem = ldml.addnode(collationElem, 'cr', returnnew=True)
-                crElem.text = sortSpecString
+            thisColl.minimise(alphabet)     
         except Exception as errorname:
-            logging.debug("Unable to create ldml collation for {}; collation being skipped for now: ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
+            logging.debug("Unable to MINIMIZE ldml collation for {}; let's see if collation still works: ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
             pass
+        sortSpecString = thisColl.asICU(alphabet) 
+        if len(sortSpecString):
+            collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
+            crElem = ldml.addnode(collationElem, 'cr', returnnew=True)
+            crElem.text = sortSpecString
     elif not nosort:   # delete the collation
         # only delete collation if the original was a simple sort. If hand crafted, keep it.
         if collationNode is not None and collationNode.find('special/{{{}}}simple'.format(ldml.silns)) is not None:
