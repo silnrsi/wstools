@@ -367,11 +367,16 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict) :
                 if len(slashItems) == 1 and len(slashItems[0]) == 2 :
                     c1 = (slashItems[0])[0:1]
                     c2 = (slashItems[0])[1:]
-                    if ducet.ducetCompare(ducetDict, c1, c2) == 3 : # case equivalent with x <<< X
+                    if c1 in ['\u200c']:    # add to this list things that might sneak into stuff unexpectedly. Note that for U+200c this only works because if it was intentional, it'd be between two characters, and this section only allows for sets of 2
+                        slashItems = [c2]
+                    elif c2 in ['\u200c']:
+                        slashItems = [c1]
+                    elif ducet.ducetCompare(ducetDict, c1, c2) == 3 : # case equivalent with x <<< X
                         # Assume a typo where they left out the slash.
                         slashItems = [c1, c2]
                 if len(slashItems) == 1 and len(slashItems[0]) < 10 and slashItems[0] not in ['ß']:        
                     # previously, the third requirement said 'and len(slashItems[0]) > 1' but was changed to a list of exceptions since it also skipped other characters that were left uncapitalized in the simple collation
+                    # specifically the exceptions should hold anything that shouldn't be expanded out to have its upper and lowercase combinations
                     s = slashItems[0]
                     slashSet = set()
                     if sum(1 if c.lower() == c else 0 for c in s) == len(s):
@@ -544,7 +549,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     if 'lds' in filenames:
         with codecs.getreader("utf-8")(dblObj.project.open(filenames['lds'])) as inf:
            (sortColl, alphabet) = processLds(ldml, inf, ducetDict, replaceColl, filename)
-    elif replaceColl and collationElem is not None:
+    elif replaceColl and collationElem is not None:         # note: can replaceColl ever be None? was this meant to mean False?
         vs = re.sub(r"(\s*\n)+", "\n", collationElem.text)
         if vs is not None:
             vstrings = [puamap(s) for s in vs.split("\n")]
@@ -559,11 +564,15 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         except Exception as errorname:
             logging.debug("Unable to MINIMIZE ldml collation for {}; let's see if collation still works: ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
             pass
-        sortSpecString = thisColl.asICU(alphabet) 
-        if len(sortSpecString):
-            collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
-            crElem = ldml.addnode(collationElem, 'cr', returnnew=True)
-            crElem.text = sortSpecString
+        try:
+            sortSpecString = thisColl.asICU(alphabet) 
+            if len(sortSpecString):
+                collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
+                crElem = ldml.addnode(collationElem, 'cr', returnnew=True)
+                crElem.text = sortSpecString
+        except Exception:
+            #no debug message because this error will ALSO ping the setSortKeys error a few lines down
+            pass
     elif not nosort:   # delete the collation
         # only delete collation if the original was a simple sort. If hand crafted, keep it.
         if collationNode is not None and collationNode.find('special/{{{}}}simple'.format(ldml.silns)) is not None:
@@ -574,7 +583,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
 
     if sortColl is not None:
         try:
-            sortColl._setSortKeys()     # this is the current problem child the second
+            sortColl._setSortKeys()
             exemplars.collator = sortColl
         except:
             logging.debug("Unable to create ldml collation for {}; bug with '._setSortKeys' in 'collation.py' in sldrtools, collation being skipped for now".format(filename))
