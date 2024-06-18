@@ -15,6 +15,7 @@ from configparser import RawConfigParser
 from xml.etree import ElementTree as etree
 import xml.etree.cElementTree as et
 from sldr import UnicodeSets, ducet
+from icu import Script
 
 # For calling DBLAuthV1 class:
 # The requests module may need to be installed separately; it does not appear to be part of the standard Python.
@@ -201,7 +202,7 @@ def _valueNotNo(value) :
         return False
     return True
 
-def processLds(ldml, ldsFile, ducetDict, replaceColl, filename):
+def processLds(ldml, ldsFile, ducetDict, replaceColl, filename, script):
     if ldsFile.peek(3)[:3] == b"\xef\xbb\xbf":
         ldsFile.read(1)
     ldsConfig = RawConfigParser()
@@ -223,7 +224,7 @@ def processLds(ldml, ldsFile, ducetDict, replaceColl, filename):
 
     if replaceColl:
         simpleColls = readLdsCollation(ldsConfig)
-        (sortColl, alphabet) = calcSortLdsData(ldml, filename, simpleColls, ducetDict)
+        (sortColl, alphabet) = calcSortLdsData(ldml, filename, simpleColls, ducetDict, script)
         return (sortColl, alphabet)
     return (None, None)
 
@@ -336,9 +337,11 @@ def readLdsCollation(ldsConfig):
                     value = "'"  # kludge; why does the get() function return the wrong value?
                 valueList.append(value)
             cntr = cntr + 1
-    return valueList
+    if valueList is not None:
+        puaValueList = [puamap(s) for s in valueList]
+    return puaValueList
 
-def calcSortLdsData(ldml, filename, valueList, ducetDict) :
+def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
     # Generate a data structure similar to a sort tailoring for the list of characters.
     sortResult = []
     collObj = Collation(ducetDict)
@@ -346,6 +349,8 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict) :
     simple = True
     simplelist = list("abcdefghijklmnopqrstuvwxyz'")
     charError = False
+    print(script)
+    stowaways = ['\u200c']   # add to this list things that might sneak into stuff unexpectedly. Note that for U+200c this only works because if it was intentional, it'd be between two characters, and this section only allows for sets of 2
     if len(valueList) > 0 :
         currBase = None
         for value in valueList :
@@ -362,18 +367,24 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict) :
             prevSlashItems = None
             currLevel = 1
             for spaceItem in spaceItems :
-                slashItems = spaceItem.split('/')
+                if spaceItem != '/':
+                    slashItems = spaceItem.split('/')
+                else:
+                    slashItems = [spaceItem]
                 # Kludge to handle something like xX which should really be x/X
                 if len(slashItems) == 1 and len(slashItems[0]) == 2 :
                     c1 = (slashItems[0])[0:1]
                     c2 = (slashItems[0])[1:]
-                    if c1 in ['\u200c']:    # add to this list things that might sneak into stuff unexpectedly. Note that for U+200c this only works because if it was intentional, it'd be between two characters, and this section only allows for sets of 2
+                    if c1 in stowaways:   
                         slashItems = [c2]
-                    elif c2 in ['\u200c']:
+                    elif c2 in stowaways:
                         slashItems = [c1]
                     elif ducet.ducetCompare(ducetDict, c1, c2) == 3 : # case equivalent with x <<< X
                         # Assume a typo where they left out the slash.
                         slashItems = [c1, c2]
+                if len (slashItems) == 2 and len(slashItems[0]) > 1 and slashItems[0][1].lower() != slashItems[0][1].upper():
+                    #for not-fully-expanded digraphs (doesn't handle multigraphs atm). Final "and" prevents this from catching decomposed diacritics
+                    slashItems = [slashItems[0].lower()]
                 if len(slashItems) == 1 and len(slashItems[0]) < 10 and slashItems[0] not in ['ß']:        
                     # previously, the third requirement said 'and len(slashItems[0]) > 1' but was changed to a list of exceptions since it also skipped other characters that were left uncapitalized in the simple collation
                     # specifically the exceptions should hold anything that shouldn't be expanded out to have its upper and lowercase combinations
@@ -381,9 +392,17 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict) :
                     slashSet = set()
                     if sum(1 if c.lower() == c else 0 for c in s) == len(s):
                         for i in range(2 ** len(s)):
-                            slashSet.add("".join(c.upper() if (i & (1 << j)) != 0 else c for j,c in enumerate(s)))
+                            v = "".join(c.upper() if (i & (1 << j)) != 0 else c for j,c in enumerate(s))
+                            if len(v) > 1 and v[0].islower() and any(b.isupper() for b in v[0:]):
+                                # cuts out the "lopsided" case combinations that unicode standard deems unnecessary (i.e. "nY", "nGy", "nGY", "ngY", etc.)
+                                #simply remove this 'if' statement and the continue if we decide later we want them in there after all
+                                continue 
+                            slashSet.add(v)
                         slashSet.remove(s)
                         slashItems.extend(slashSet)
+                if Script.getShortName(Script.getScript(slashItems[0][0])) != script and Script.getShortName(Script.getScript(slashItems[0][0])) != 'Zyyy':
+                    # an attempt to clean up some REALLY wonky collations, specifically removing items that aren't in the proper script for the file
+                    continue
                 try:
                     slashItems.sort(key=ducet.keyfn(ducetDict, 3))
                     slashItems.reverse()
@@ -442,6 +461,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     ltagp = None
     ssf = None
     lang = None
+    script = None
     
     try:
         ltag = langtag(str(lookup(langCode).tag))
@@ -460,6 +480,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     exemplars.analyze()
     exemplars.normalize("NFC")
     if len(exemplars.script) > 0: 
+        script = exemplars.script
         # for cases where the translation text is for a more specific locale than the "encompassed" one from the langCode, i.e. file might say "wsg" but the locale is actually "wsg_Telu"
         exemplarlangcode = lang + "-" + exemplars.script
         try:
@@ -473,8 +494,6 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         with dblObj.project.open(filenames['ldml']) as inf:
             dblLdml = Ldml(inf)
             # for cases where the ldml file is for a more specific locale than the "encompassed" one from the langCode
-            # technically this might be more of a flaw in newdbl.py "process_projects" function which yields the langCode but this is a bandaid fix. 
-            # this fix might also end up being more robust for cases where multiple locales are in the same language project (i.e. multi-script projects)
             if len(exemplars.script) == 0:      # currently only in cases where script can't be gotten from the usx files
                 ldmllang = dblLdml.root.find('.//identity/language')
                 ldmlscript = dblLdml.root.find('.//identity/script')
@@ -548,12 +567,12 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     sortSpecString = ''
     if 'lds' in filenames:
         with codecs.getreader("utf-8")(dblObj.project.open(filenames['lds'])) as inf:
-           (sortColl, alphabet) = processLds(ldml, inf, ducetDict, replaceColl, filename)
+           (sortColl, alphabet) = processLds(ldml, inf, ducetDict, replaceColl, filename, script)
     elif replaceColl and collationElem is not None:         # note: can replaceColl ever be None? was this meant to mean False?
         vs = re.sub(r"(\s*\n)+", "\n", collationElem.text)
         if vs is not None:
             vstrings = [puamap(s) for s in vs.split("\n")]
-            (sortColl, alphabet) = calcSortLdsData(ldml, filename, vstrings, ducetDict)
+            (sortColl, alphabet) = calcSortLdsData(ldml, filename, vstrings, ducetDict, script)
         if alphabet is not None:
             se = ldml.ensure_path('collations/collation[@type="standard"]/special/sil:simple')[0]
             se.text = puamap(vs)

@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import sys, os
+from langtag import lookup, langtag
 
 try:
     import dbl
@@ -8,7 +9,7 @@ except ImportError:
     sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib', 'wstools'))
     import dbl
 
-from palaso.sldr.ldml_exemplars import Exemplars
+from sldr.ldml_exemplars import Exemplars
 import argparse
 import multiprocessing, logging
 
@@ -16,10 +17,6 @@ def process(infname, lang, outdir=".", update=False):
     path = os.path.join(outdir, lang[0])
     if not os.path.exists(path):
         os.makedirs(path)
-    outfile = os.path.join(path, lang.replace("-","_")+".tsv")
-    if update and os.path.exists(outfile):
-        logging.debug("Skipping: {}".format(infname))
-        return False
     logging.debug("Processing: {}".format(infname))
     dblObj = dbl.DBL(infname)
     exemplars = Exemplars()
@@ -30,6 +27,24 @@ def process(infname, lang, outdir=".", update=False):
     except Exception as e:
         pass
     dblObj.close_project()
+    try:
+        ltag = langtag(str(lookup(lang).tag))
+    except KeyError:
+        ltag = langtag(lang)
+    if len(exemplars.script) > 0: 
+        script = exemplars.script
+        # for cases where the translation text is for a more specific locale than the "encompassed" one from the langCode, i.e. file might say "wsg" but the locale is actually "wsg_Telu"
+        exemplarlangcode = lang + "-" + exemplars.script
+        try:
+            exemplartag = langtag(str(lookup(exemplarlangcode).tag))
+        except KeyError: 
+            exemplartag = langtag(exemplarlangcode)
+        if exemplartag != ltag: 
+            ltag = exemplartag
+    outfile = os.path.join(path, str(ltag).replace("-","_")+".tsv")
+    if update and os.path.exists(outfile):
+        logging.debug("Skipping: {}".format(infname))
+        return False
     exemplars.analyze()
     clusters = {k.base+k.trailers: v for k, v in exemplars.raw_clusters.items()}
     
