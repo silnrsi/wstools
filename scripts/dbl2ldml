@@ -605,7 +605,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
             sortColl._setSortKeys()
             exemplars.collator = sortColl
         except:
-            logging.debug("Unable to create ldml collation for {}; bug with '._setSortKeys' in 'collation.py' in sldrtools, collation being skipped for now".format(filename))
+            logging.debug("Unable to create ldml collation for {}; something goes wring in '._setSortKeys' in 'collation.py' in sldrtools, collation being skipped for now".format(filename))
             pass
 
     for t in ('auxiliary', 'main', 'index', 'punctuation'):     # order is important

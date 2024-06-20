@@ -32,7 +32,6 @@ def process(infname, lang, outdir=".", update=False):
     except KeyError:
         ltag = langtag(lang)
     if len(exemplars.script) > 0: 
-        script = exemplars.script
         # for cases where the translation text is for a more specific locale than the "encompassed" one from the langCode, i.e. file might say "wsg" but the locale is actually "wsg_Telu"
         exemplarlangcode = lang + "-" + exemplars.script
         try:
@@ -47,11 +46,20 @@ def process(infname, lang, outdir=".", update=False):
         return False
     exemplars.analyze()
     clusters = {k.base+k.trailers: v for k, v in exemplars.raw_clusters.items()}
-    
+    if clusters == {}:
+        logging.debug("Unable to get gclusters for {}".format(infname))
+
     with open(outfile, "w") as outf:
-        outf.write("cluster\tcount\n")
+        outf.write("cluster\tcount\tcasing patterns\n")
         for k, v in sorted(clusters.items(), key=lambda a: (-a[1], a[0])):
-            outf.write("{}\t{}\n".format(k, v))
+            if k in exemplars.non_casing_chars.keys():
+                # adds a column that notes if character only appears in a specific case in the DBL files
+                outf.write("{}\t{}\t{}\n".format(k, v, exemplars.non_casing_chars[k]))
+            elif k.upper() in exemplars.non_casing_chars.keys():
+                # adds a column that notes if character only appears in a specific case in the DBL files
+                outf.write("{}\t{}\t{}\n".format(k, v, exemplars.non_casing_chars[k.upper()]))
+            else:
+                outf.write("{}\t{}\t\n".format(k, v))
     return True
 
 parser = argparse.ArgumentParser()
