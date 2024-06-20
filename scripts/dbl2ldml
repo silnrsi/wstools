@@ -349,7 +349,6 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
     simple = True
     simplelist = list("abcdefghijklmnopqrstuvwxyz'")
     charError = False
-    print(script)
     stowaways = ['\u200c']   # add to this list things that might sneak into stuff unexpectedly. Note that for U+200c this only works because if it was intentional, it'd be between two characters, and this section only allows for sets of 2
     if len(valueList) > 0 :
         currBase = None
