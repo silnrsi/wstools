@@ -369,9 +369,16 @@ class DBL(object):
         """Process one USX file."""
         tree = ET.parse(usx)
         root = next(tree.iter())
+        publish = list(self.publishable)
+        arabic_style_ids = {'ك':'id', 'عك':'h', 'م':'imt', 'مف':'ip', 'ص':'c', 'ي':'v', 'ف':'p', 'ف 1':'m', 'ف 2':'nb', 'ش':'q', 'ش1':'q1', 'ش2':'q2', 'س':'qs', 'شغ':'b', 'عر':'mt', 'عر1':'mt1', 'عر2':'mt2', 'عق':'ms', 'عق1':'mr', 'ع':'s', 'ع1':'s1', 'ع2':'s2', 'عش':'r', 'عم':'sp', 'عج':'d', 'ت':'f', 'تش':'fr', 'تن':'ft', 'تنش':'fq', 'تشم':'x', 'تشل':'xo', 'تشت':'xt', 'صو':'fig'}   
+            # specifically for arq which has a stylesheet with some arabic ids for some reason
+        for x in publish:
+            if x in arabic_style_ids.keys():
+                self.publishable.pop()
+                self.publishable.add(arabic_style_ids[x])
         for marker in list(root):
             style = marker.get('style')
-            if style in self.publishable and style.startswith(self.main_text):
+            if style in self.publishable and (style.startswith(self.main_text) or style == ('m')):
                 for text in self._get_text(marker):
                     yield text
         usx.close()
@@ -414,12 +421,14 @@ class DBL(object):
         if element.tag == 'note':
             return
         if element.text:
-            yield element.text
+            if element.text.strip():
+                yield element.text
+        if element.tail:
+            if element.tail.strip():
+                yield element.tail
         for e in element:
             for se in self.iter_main_text(e):
                 yield se
-            if e.tail:
-                yield e.tail
 
     def close_project(self):
         """Close a DBL project."""
