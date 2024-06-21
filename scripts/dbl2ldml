@@ -399,9 +399,10 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
                             slashSet.add(v)
                         slashSet.remove(s)
                         slashItems.extend(slashSet)
-                if Script.getShortName(Script.getScript(slashItems[0][0])) != script and Script.getShortName(Script.getScript(slashItems[0][0])) != 'Zyyy':
+                if len(slashItems[0]) > 0:
+                    if Script.getShortName(Script.getScript(slashItems[0][0])) != script and Script.getShortName(Script.getScript(slashItems[0][0])) != 'Zyyy':
                     # an attempt to clean up some REALLY wonky collations, specifically removing items that aren't in the proper script for the file
-                    continue
+                        continue
                 try:
                     slashItems.sort(key=ducet.keyfn(ducetDict, 3))
                     slashItems.reverse()
