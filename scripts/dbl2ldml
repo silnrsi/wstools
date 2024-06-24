@@ -516,14 +516,12 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                 if ldmlvar != None:
                     ldmllangcode = ldmllangcode + "-" + ldmlvar.get('type')
             # for cases where the ldml file is for a more specific locale than the "encompassed" one from the langCode
-            print(ldmllangcode)
             if ldmllangcode != None:
                 try:
                     ldmltag = langtag(str(lookup(ldmllangcode).tag))
                     if ldmllang.get('type') == lang and ldmltag != ltag:       # checks against 'lang' to avoid cases when the only ldml file in the project isn't for the language at all
                         langCode = ldmltag
                 except KeyError: 
-                    print("uh oh")
                     pass
                       
     if 'ssf' in filenames:
@@ -539,7 +537,6 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     except KeyError:
         ltag = langtag(ltagp or langCode)
     outfname = str(ltag).replace("-","_")+".xml"
-    print(outfname)
 
     hasldml = False
     if sldrPath is not None:
