@@ -1,0 +1,143 @@
+import os, json
+import requests
+import logging, re, unicodedata
+from langtag import langtag, lookup
+from sldr.utils import find_parents
+import argparse
+from sldr.ldml import Ldml, _alldrafts, getldml
+from sldr import ducet
+import sys, traceback
+from langtag import lookup, langtag
+from iso639 import iso639_3_2, iso639_2_3
+
+try:
+    import dbl
+except ImportError:
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib', 'wstools'))
+    import dbl
+
+from sldr.ldml_exemplars import Exemplars
+import argparse
+import multiprocessing, logging
+
+# dbl search multigraphs
+# argument parser that will take:
+#   - locale
+#   - character
+# and will return:
+#   - a Counter() object with every possible multigraph containing that character
+# Primarily this will be used to confirm if a character only appears in specific multigraphs, or if they can appear independently
+
+def get_ltag(l):
+    try:
+        ltag = langtag(str(lookup(l).tag))
+    except KeyError:
+        langCode = iso639_3_2(l)
+        ltag = langtag(str(lookup(langCode).tag))   
+    r = str(ltag).rfind('-')
+    if r > 0:
+        lang = str(ltag)[:r]
+    else: 
+        lang = str(ltag)
+    return (ltag, lang)
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('lang',help='Langtag to process, using hypens')
+parser.add_argument('-d','--dblpath',help="Path to local zips of DBL")
+parser.add_argument('-c','--character',type=str,help='Character to search for')
+parser.add_argument('-l','--loglevel',help='Set logging level')
+parser.add_argument('-p', '--position', default = None, choices = ['initial', 'second', 'third', 'medial', 'final', 'non-final', 'non-initial', None], help="Position of character in multigraph, default None (return everything regardless of position). Note that 'second' and 'third' do NOT include final characters (i.e. 'second' will return 'xYx' but not 'xY', 'third' will return 'xxYx' but not 'xxY')")
+parser.add_argument('-n', '--number', type=int, choices = [2, 3, 4], default = 4, help="Max length of multigraphs to return. Default is max (4)")
+
+args = parser.parse_args()
+
+if args.loglevel:
+    logging.basicConfig(stream=sys.stdout, level=args.loglevel.upper(),
+            format="%(levelname)s:%(module)s %(message)s")
+    
+char = args.character
+position = args.position
+number = args.number
+
+if number == 2:
+    if position == 'third':
+        assert False, "Position 'third' cannot be used when maximum multigraph length is 2."    #duh
+    elif position == 'medial':
+        assert False, "Position 'medial' cannot be used when maximum multigraph length is 2, as there is only an 'initial' and 'final' character in a set of 2."
+    elif position =='second':
+        assert False, "Position 'second' can only be used for multigraphs of 3 or more. Did you mean 'final'?"
+elif number == 3 and position == 'third':
+    assert False, "Position 'third' can only be used for multigraphs of 4. Did you mean 'final'?"
+    
+
+ducetDict = ducet.readDucet()
+filelist = [os.path.join(args.dblpath, f) for f in os.listdir(args.dblpath) if f.endswith(".zip")]
+(ltag, lang) = get_ltag(args.lang)
+script = getattr(lookup(ltag), "script")
+needspecific = False
+allfiles = list(dbl.process_projects(filelist, lang))
+if len(allfiles) == 0:
+    for i in iso639_2_3(lang):
+        allfiles.extend(list(dbl.process_projects(filelist, i)))
+if len(allfiles) == 0:
+    # track down macrolang/microlang
+    alts = getattr(lookup(ltag), "tags")
+    altlangs = []
+    for a in alts:
+        r = str(a).rfind('-')
+        if r > 0:
+            altlang = str(a)[:r]
+        else: 
+            altlang = str(a)
+        if altlang not in altlangs:
+            altlangs.append(altlang)
+            allfiles.extend(list(dbl.process_projects(filelist, altlang)))
+if len(allfiles) > 1:
+    needspecific = True
+
+# by this point, if there is a file in dbl with this langauge, it should be found. 
+# it may even find some that don't match the full locale but we will deal with that later lol
+
+for f in allfiles:
+    dblObj = dbl.DBL(f[0])
+    exemplars = Exemplars()
+    exemplars.frequent = 0.0
+    try:
+        for t in dblObj.analyze_text():
+            exemplars.process(t, maxmultigraphs = True)
+    except Exception as e:
+        pass
+    dblObj.close_project()
+    if exemplars.script != script:
+        continue
+    print(f)
+    multigraphs = {k.base+k.trailers: v for k, v in exemplars.all_potential_multigraphs.items()}
+    relvmultigraphs = {}
+    for key, value in multigraphs.items():
+        if char in key and len(key) > 1 and len(key) <= number and ' ' not in key:
+            if position in ['initial', 'non-final']:
+                if key[0] == char:
+                    relvmultigraphs[key] = value
+            if position in ['second', 'medial', 'non-final', 'non-initial']:
+                if len(key) > 2 and key[1] == char:
+                    relvmultigraphs[key] = value
+            if position in ['third', 'medial', 'non-final', 'non-initial']:
+                if len(key) > 3 and key[2] == char:
+                    relvmultigraphs[key] = value
+            if position in ['final', 'non-initial']:
+                if key[len(key)-1] == char:
+                    #this only works bc i'm only returning 2-letter combos atm. would need to make smarter to detect final (len(key)?) if use more graphs
+                    relvmultigraphs[key] = value
+            if position == None:
+                relvmultigraphs[key] = value
+    for k,v in relvmultigraphs.items():
+        print(str(k) + " : " + str(v))
+
+
+    
+
+    #add clause saying if nothing happens at this point return nothing happened or something idk not in dbl maybe suggest other tags?
+        
+
+# at some point when examining exemplars, pick out one with correct script if appropriate
