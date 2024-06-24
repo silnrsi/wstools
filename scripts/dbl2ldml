@@ -16,6 +16,7 @@ from xml.etree import ElementTree as etree
 import xml.etree.cElementTree as et
 from sldr import UnicodeSets, ducet
 from icu import Script
+from iso639 import iso639_3_2
 
 # For calling DBLAuthV1 class:
 # The requests module may need to be installed separately; it does not appear to be part of the standard Python.
@@ -444,11 +445,17 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     dblObj.open_project(filename)
 
     filenames = {}
+    fileExtCounts = {'ldml': 0, 'lds': 0, 'ssf': 0}  # for troubleshooting purposes
+    filesAll = []   # for troubleshooting purposes
     for n in dblObj.namelist():
         for ext in ('ldml', 'lds', 'ssf'):
             if n.endswith("."+ext):
                 filenames[ext] = n
+                fileExtCounts[ext] += 1     # for troubleshooting purposes
+                filesAll.append(n)      # for troubleshooting purposes
     hasMetaDataFile = 'metadata.xml' in dblObj.namelist()
+    
+    # print(str(langCode) + ": " + str(fileExtCounts) + " " + str(filesAll))    # for troubleshooting purposes, uncomment when needed
 
     mainChTextOrig = None
     auxChTextOrig = None
@@ -466,7 +473,9 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     try:
         ltag = langtag(str(lookup(langCode).tag))
     except KeyError:
-        ltag = langtag(langCode)
+        langCode = iso639_3_2(langCode)
+        ltag = langtag(str(lookup(langCode).tag))
+        #ltag = langtag(langCode)
     r = str(ltag).rfind('-')
     if r > 0:
         lang = str(ltag)[:r]
@@ -493,25 +502,30 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     if 'ldml' in filenames:
         with dblObj.project.open(filenames['ldml']) as inf:
             dblLdml = Ldml(inf)
+            ldmllang = dblLdml.root.find('.//identity/language')
+            ldmlscript = dblLdml.root.find('.//identity/script')
+            ldmlterritory = dblLdml.root.find('.//identity/territory')
+            ldmlvar = dblLdml.root.find('.//identity/variant')
+            ldmllangcode = None
+            if ldmllang != None: 
+                ldmllangcode = ldmllang.get('type')
+                if ldmlscript != None: 
+                    ldmllangcode = ldmllangcode + "-" + ldmlscript.get('type')
+                if ldmlterritory != None: 
+                    ldmllangcode = ldmllangcode + "-" + ldmlterritory.get('type')
+                if ldmlvar != None:
+                    ldmllangcode = ldmllangcode + "-" + ldmlvar.get('type')
             # for cases where the ldml file is for a more specific locale than the "encompassed" one from the langCode
-            if len(exemplars.script) == 0:      # currently only in cases where script can't be gotten from the usx files
-                ldmllang = dblLdml.root.find('.//identity/language')
-                ldmlscript = dblLdml.root.find('.//identity/script')
-                ldmlterritory = dblLdml.root.find('.//identity/ldmlterritory')
-                ldmllangcode = None
-                if ldmllang != None: 
-                    ldmllangcode = ldmllang.get('type')
-                    if ldmlscript != None: 
-                        ldmllangcode = ldmllangcode + "-" + ldmlscript.get('type')
-                    if ldmlterritory != None: 
-                        ldmllangcode = ldmllangcode + "-" + ldmlterritory.get('type')
-                if ldmllangcode != None:
-                    try:
-                        ldmltag = langtag(str(lookup(ldmllangcode).tag))
-                    except KeyError: 
-                        ldmltag = langtag(ldmllangcode)
+            print(ldmllangcode)
+            if ldmllangcode != None:
+                try:
+                    ldmltag = langtag(str(lookup(ldmllangcode).tag))
                     if ldmllang.get('type') == lang and ldmltag != ltag:       # checks against 'lang' to avoid cases when the only ldml file in the project isn't for the language at all
-                        langCode = ldmltag      
+                        langCode = ldmltag
+                except KeyError: 
+                    print("uh oh")
+                    pass
+                      
     if 'ssf' in filenames:
         with dblObj.project.open(filenames['ssf']) as inf:
             ssf = Ssf()
@@ -525,6 +539,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     except KeyError:
         ltag = langtag(ltagp or langCode)
     outfname = str(ltag).replace("-","_")+".xml"
+    print(outfname)
 
     hasldml = False
     if sldrPath is not None:
