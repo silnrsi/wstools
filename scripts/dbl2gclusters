@@ -2,6 +2,8 @@
 
 import sys, os
 from langtag import lookup, langtag
+from iso639 import iso639_3_2
+
 
 try:
     import dbl
@@ -27,10 +29,17 @@ def process(infname, lang, outdir=".", update=False):
     except Exception as e:
         pass
     dblObj.close_project()
+    
     try:
         ltag = langtag(str(lookup(lang).tag))
     except KeyError:
-        ltag = langtag(lang)
+        langCode = iso639_3_2(lang)
+        ltag = langtag(str(lookup(langCode).tag))   
+    r = str(ltag).rfind('-')
+    if r > 0:
+        lang = str(ltag)[:r]
+    else: 
+        lang = str(ltag) 
     if len(exemplars.script) > 0: 
         # for cases where the translation text is for a more specific locale than the "encompassed" one from the langCode, i.e. file might say "wsg" but the locale is actually "wsg_Telu"
         exemplarlangcode = lang + "-" + exemplars.script
@@ -40,6 +49,7 @@ def process(infname, lang, outdir=".", update=False):
             exemplartag = langtag(exemplarlangcode)
         if exemplartag != ltag: 
             ltag = exemplartag
+    
     outfile = os.path.join(path, str(ltag).replace("-","_")+".tsv")
     if update and os.path.exists(outfile):
         logging.debug("Skipping: {}".format(infname))
