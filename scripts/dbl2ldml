@@ -62,6 +62,71 @@ class Puamap:
 
 puamap = Puamap()
 
+knownvarsmap= {
+    # dbl files that we have previously discovered are variants but aren't labeled as such in any of the files
+    #current key names are placeholders, rn I'm just finding which would dupe
+    "acr_7881095a69332502.zip":'acr-x-rabinal',
+    "acr_2fb7cabcc2144633.zip":"acr-x-rabinal-trad", #traditional orthography. pay attention to this one, might need it's tag renamed since it's tag is poorly formatted anyway
+    "acr_f39e0b553b5b6e1e.zip":"acr-x-cubulco",
+    "aoj_9b2f4522c94167b3.zip":"aoj-x-filifita",
+    "aoj_e1b773c63b9b23de.zip":"aoj-x-balif",
+    "ape_0e5e9ab5304a71df.zip":"ape-x-coastal",
+    "ape_9adf28ef3e43803b.zip":"ape-x-mountain",
+    "buu_9dfa86fef49a2749.zip":"",    #Budu-Koya, rolv code 19443 i think? langtags doesn't have this one but it DOES have 08404 buu-x-bafwa (short for bafwakoyi) which I could see as being a possibility/mix-up (koya ~ koyi)
+    "buu_7f38828c4ca2f6ec.zip":"buu-x-ineta",         #Budu-Nita
+    "bwu_adfa3f511e02d362.zip":"bwu", # bwu isn't actually 2 variants, it's a nt w/ hacked ortho features and a newer nt+some ot. just use this one, skip the other one
+    "bwu_23924b4088bd455f.zip":None, # skip this one, it's an older hacked-font version of the other bwu
+    "cak_0c58bc770fea1f13.zip":"cak-x-xenacoj",
+    "cak_78df9d2017796a6a.zip":"cak-x-swestern", #also tagged as cbm? aka yepocapa
+    "cak_a4c5eb163eacc4fe.zip":"cak-x-central",
+    "cak_a804bbc16f5648c6.zip":"cak-x-subsa",    #aka cak santa maria
+    "cak_ba8af875c3c81f92.zip":"cak-x-subsu",   # aka cak southern
+    "cak_bc4e6ea72ebcd70a.zip":"cak-x-eastern", #aka cak oriental
+    "cak_c4fe9e2ee5c9478b.zip":"cak-x-subcm",   #aka surcentral. pretty sure that's subcm (4023 chimaltenago)
+    "cak_edc84e947196a225.zip":"cak-x-subso",   #aka western. pretty sure that's subso (4024 solola)
+    "cbs_bfe3d27ca02d8188.zip":"cbs-BR",
+    "ctu_fc58a81f91b61c65.zip":"ctu-x-tumbala",
+    "ctu_312b0d1e64e9e427.zip":"ctu-x-tila",
+    "dhg_9f72b29d8a4d0cd8.zip":"dhg-x-wangurri",
+    "gfk_83abc8c1746443c3.zip":"",  #sokarek rolv id 21925, not in langtags
+    "gfk_eeaf12df03835eb2.zip":"",   # hinsaal dialect, rolv id 21926, not in langtags
+    "hus_05749a20390d4b57.zip":"hus-x-central",  #huasteco veracruz, rolv code 04681
+    "hus_4debd996d0f50e67.zip":"hus-x-potosino",   #Huastec San Luis Potosi
+    "ixl_2bac6224ab47bab8.zip":"ixl-x-cotzal",
+    "ixl_2dad83033884a3ad.zip":"ixl-x-nebaj",
+    "kmh_3de6c420cb00e851.zip":"kmh-x-minimib",   
+    "knv_cd88ca9cb083c101.zip":"knv-x-flyriver",
+    "knv_74ea3f410729934b.zip":"knv-x-aramia",
+    "kqe_7876fc7be8a234f1.zip":"kqe-x-east",
+    "kqe_9396bdab17afda48.zip":"kqe-x-west",
+    "kus_333a4a06309f5935.zip":"kus",   # other one is a hacked font older version, do not use it
+    "kus_aa7bfc87e2d146e9.zip":None,    #hacked font, do not use
+    "mam_8eb38973d944f48a.zip":"mam-x-central",
+    "mam_925bffd8dc536fee.zip":"mam-x-todos",   #mam todos santos, rolv 03470
+    #"mbb":"mbb"    # there are two projects for mbb, but one is a NT and one is an OT, produced around the same time and with identical ldml & lds file contents, only dif would be exemplars from actual text
+    "nhx_d38a664622353792.zip":"nhx-x-tatahui",
+    "noa_237c316a234a0fa7.zip":"", #"original orthography"
+    "noa_5f19908d3d3695c1.zip":"", #"alternate orthography"
+    "okv_78b96b766ccc69b2.zip":"", #Etija dialect, rolv code 15341
+    "okv_804cc342b7cc775a.zip":"", #Ehija dialect, rolv code 15340
+    "ptu_e147c0d35d7dd600.zip":"ptu",
+    "ptu_508d69aca227e09a.zip":None, #same translation, just less books in it
+    "quc_dd5c5f7428bdbc7d.zip":"quc-x-trad",     #note that normal quc is in cldr so this needs to be caleld BEFORE that check
+    "qvw_2b2b53c89ed39448.zip":"qvw",   # both qvw files are same translation, just one is NT and one is OT. Prioritize OT bc slightly newer and its files are nicer
+    "qvw_4682b4576f7f666f.zip":None,
+    "tuc_79eafcc60f337d8c.zip":"tuc-x-oov",
+    "tuc_00f8a1a8be6d4cbd.zip":"tuc-x-tuam",
+    "tuo_9e63cdeff066ea65.zip":"tuo-CO",
+    "tzj_28b49503236ab541.zip":"tzq-x-western",
+    "tzo_89a655d8cecbd0b5.zip":"tzo-x-zinacntn",
+    "tzo_d3c1a6a5b1a6d906.zip":"tzo-x-huixtan",
+    "tzo_d2852d0e5004eee9.zip":"tzo-x-sanandre",
+    "wed_017a5237548af856.zip":"wed-x-topura",
+    "xbi_1d2500c097ee17fc.zip":"",   #Kombio Wamupukuamp
+    "xbi_6143d8c5bae3a41f.zip":"",   #Kambio Yanimoi
+    "xsm_78b5ca615ee7f539.zip":"xsm-BF"   #Burkina Faso orthography
+}
+
 ssfmap = {
     # LanguageIsoCode is passed in
     'DefaultFont': ('special/sil:external-resources/sil:font[@types="default"]/@name', ''),
@@ -450,9 +515,13 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     for n in dblObj.namelist():
         for ext in ('ldml', 'lds', 'ssf'):
             if n.endswith("."+ext):
-                filenames[ext] = n
                 fileExtCounts[ext] += 1     # for troubleshooting purposes
                 filesAll.append(n)      # for troubleshooting purposes
+                if n in ['English.lds']:
+                    # skip/remove majority language files that sneak into projects
+                    continue
+                filenames[ext] = n
+                
     hasMetaDataFile = 'metadata.xml' in dblObj.namelist()
     
     # print(str(langCode) + ": " + str(fileExtCounts) + " " + str(filesAll))    # for troubleshooting purposes, uncomment when needed
@@ -703,7 +772,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     outdir = os.path.join(outputPath, str(ltag)[0])
     if not os.path.exists(outdir):
         os.makedirs(outdir, exist_ok=True)
-    ldmlOutputFilename = os.path.join(outdir, str(ltag).replace("-", "_") + ".xml")
+    ldmlOutputFilename = os.path.join(outdir, outfname)
     ldml.normalise()
     ldml.save_as(ldmlOutputFilename)
 
