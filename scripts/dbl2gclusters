@@ -11,12 +11,23 @@ except ImportError:
     sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib', 'wstools'))
     import dbl
 
+try:
+    import newdbl
+except ImportError:
+    relpath = os.path.join(os.path.dirname(__file__), '..', 'lib', 'wstools')
+    sys.path.append(os.path.abspath(relpath))
+    import newdbl
+
 from sldr.ldml_exemplars import Exemplars
 import argparse
 import multiprocessing, logging
 
-def process(infname, lang, outdir=".", update=False):
-    path = os.path.join(outdir, lang[0])
+(skipfilesmap, knownvarsmap) = newdbl.exceptions()
+
+
+
+def process(infname, langCode, outdir=".", update=False):
+    path = os.path.join(outdir, langCode[0])
     if not os.path.exists(path):
         os.makedirs(path)
     logging.debug("Processing: {}".format(infname))
@@ -30,17 +41,40 @@ def process(infname, lang, outdir=".", update=False):
         pass
     dblObj.close_project()
     
-    try:
-        ltag = langtag(str(lookup(lang).tag))
-    except KeyError:
-        langCode = iso639_3_2(lang)
-        ltag = langtag(str(lookup(langCode).tag))   
+    knownVariant = False
+
+    s = str(infname).rfind(langCode)
+    dblfile = str(infname)[s:]
+
+    if dblfile in skipfilesmap:
+        reason = skipfilesmap[dblfile]
+        logging.info("{} skipped: {}".format(dblfile, reason))
+        return
+
+    if dblfile in knownvarsmap:
+        langCode = knownvarsmap[dblfile]
+        knownVariant = True
+    
+    a = str(langCode).rfind('-')
+    if knownVariant and a > 0 and str(langCode)[a+1].isupper() and str(langCode)[a+2].isupper():
+        ltag = langtag(langCode)
+        #this is because some of the knownVariants distinguish between regions that langtags will consider one tag and will therefore remove the region under the "minimal" tag
+    else:
+        try:
+            ltag = langtag(str(lookup(langCode).tag))
+        except KeyError:
+            iso639_3 = iso639_3_2(langCode)
+            if iso639_3:
+                ltag = langtag(str(lookup(iso639_3).tag))
+                langCode = iso639_3
+            else:
+                ltag = langtag(langCode)
     r = str(ltag).rfind('-')
     if r > 0:
         lang = str(ltag)[:r]
     else: 
         lang = str(ltag) 
-    if len(exemplars.script) > 0: 
+    if len(exemplars.script) > 0 and not knownVariant: 
         # for cases where the translation text is for a more specific locale than the "encompassed" one from the langCode, i.e. file might say "wsg" but the locale is actually "wsg_Telu"
         exemplarlangcode = lang + "-" + exemplars.script
         try:
