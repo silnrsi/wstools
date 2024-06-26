@@ -62,6 +62,14 @@ class Puamap:
 
 puamap = Puamap()
 
+skipfilesmap= {
+    # dbl files to skip over. Use key to briefly describe why it would be skipped
+    "bwu_23924b4088bd455f.zip": "older, hacked font version of other bwu file",
+    "kus_aa7bfc87e2d146e9.zip":"older, hacked font version of kus bwu file",
+    "ptu_508d69aca227e09a.zip":"same translation as the other ptu file, just older with less books in it",
+    "qvw_4682b4576f7f666f.zip":"slightly older NT version of the other qvw (which is OT). Using other one bc its files are nicer",
+}
+
 knownvarsmap= {
     # dbl files that we have previously discovered are variants but aren't labeled as such in any of the files
     #current key names are placeholders, rn I'm just finding which would dupe
@@ -77,7 +85,6 @@ knownvarsmap= {
     "buu_9dfa86fef49a2749.zip":"buu-x-koya",    #Budu-Koya, rolv code 19443 
     "buu_7f38828c4ca2f6ec.zip":"buu-x-ineta",         #Budu-Nita
     #"bwu_adfa3f511e02d362.zip":"bwu",
-    "bwu_23924b4088bd455f.zip":None,    #hacked font version of other bwu file, do not use
     "cak_0c58bc770fea1f13.zip":"cak-x-xenacoj",
     "cak_78df9d2017796a6a.zip":"cak-x-swestern", #aka yepocapa 
     "cak_a4c5eb163eacc4fe.zip":"cak-x-central",
@@ -103,7 +110,6 @@ knownvarsmap= {
     "kqe_7876fc7be8a234f1.zip":"kqe-x-east",
     "kqe_9396bdab17afda48.zip":"kqe-x-west",
     #"kus_333a4a06309f5935.zip":"kus",   
-    "kus_aa7bfc87e2d146e9.zip":None,    #hacked font version of other kus file, do not use
     "mam_8eb38973d944f48a.zip":"mam-x-central",
     "mam_925bffd8dc536fee.zip":"mam-x-todos",   #mam todos santos, rolv 03470
     #"mbb":"mbb"    # there are two projects for mbb, but one is a NT and one is an OT, produced around the same time and with identical ldml & lds file contents, only dif would be exemplars from actual text
@@ -114,11 +120,9 @@ knownvarsmap= {
     "okv_78b96b766ccc69b2.zip":"okv-x-etija", #Etija dialect, rolv code 15341
     "okv_804cc342b7cc775a.zip":"okv-x-ehija", #Ehija dialect, rolv code 15340
     #"ptu_e147c0d35d7dd600.zip":"ptu",
-    "ptu_508d69aca227e09a.zip":None,    #same translation as the other ptu file, just less books in it
     "quc_dd5c5f7428bdbc7d.zip":"quc-x-trad",     #"traditional orthography"
         #NOT IN LANGTAGS
     #"qvw_2b2b53c89ed39448.zip":"qvw",   
-    "qvw_4682b4576f7f666f.zip":None,    #slightly older NT version of the other qvw (which is OT). Using other one bc it's files are nicer
     "tuc_79eafcc60f337d8c.zip":"tuc-x-oov",
     "tuc_00f8a1a8be6d4cbd.zip":"tuc-x-tuam",
     "tuo_9e63cdeff066ea65.zip":"tuo-CO",
@@ -549,21 +553,28 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     s = str(filename).rfind(langCode)
     dblfile = str(filename)[s:]
     
+    if dblfile in skipfilesmap:
+        reason = skipfilesmap[dblfile]
+        logging.info("{} skipped: {}".format(dblfile, reason))
+        return
+
     if dblfile in knownvarsmap:
         langCode = knownvarsmap[dblfile]
         knownVariant = True
-        if langCode == None:
-            return
     
-    try:
-        ltag = langtag(str(lookup(langCode).tag))
-    except KeyError:
-        iso639_3 = iso639_3_2(langCode)
-        if iso639_3:
-            ltag = langtag(str(lookup(iso639_3).tag))
-            langCode = iso639_3
-        else:
-            ltag = langtag(langCode)
+    a = str(langCode).rfind('-')
+    if knownVariant and a > 0 and str(langCode)[a+1].isupper() and str(langCode)[a+2].isupper():
+        ltag = langtag(langCode)
+    else:
+        try:
+            ltag = langtag(str(lookup(langCode).tag))
+        except KeyError:
+            iso639_3 = iso639_3_2(langCode)
+            if iso639_3:
+                ltag = langtag(str(lookup(iso639_3).tag))
+                langCode = iso639_3
+            else:
+                ltag = langtag(langCode)
 
     r = str(ltag).rfind('-')
     if r > 0:
@@ -621,10 +632,11 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     elif dblLdml is not None:
         ssf = Ssf()
         ssf.fromLdml(dblLdml, langCode)
-    try:
-        ltag = langtag(str(lookup(ltagp or langCode).tag))
-    except KeyError:
-        ltag = langtag(ltagp or langCode)
+    if not knownVariant:
+        try:
+            ltag = langtag(str(lookup(ltagp or langCode).tag))
+        except KeyError:
+            ltag = langtag(ltagp or langCode)
     outfname = str(ltag).replace("-","_")+".xml"
 
     hasldml = False
