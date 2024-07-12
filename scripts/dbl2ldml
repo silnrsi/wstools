@@ -482,7 +482,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     
     if dblfile in skipfilesmap:
         reason = skipfilesmap[dblfile]
-        logging.info("{} skipped: {}".format(dblfile, reason))
+        logging.info("Skipping {}: {}".format(dblfile, reason))
         return
 
     if dblfile in knownvarsmap:

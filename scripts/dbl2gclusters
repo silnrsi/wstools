@@ -48,7 +48,7 @@ def process(infname, langCode, outdir=".", update=False):
 
     if dblfile in skipfilesmap:
         reason = skipfilesmap[dblfile]
-        logging.info("{} skipped: {}".format(dblfile, reason))
+        logging.info("Skipping {}: {}".format(dblfile, reason))
         return
 
     if dblfile in knownvarsmap:
