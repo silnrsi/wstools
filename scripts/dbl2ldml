@@ -445,20 +445,52 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     dblObj = newdbl.DBL()
     dblObj.open_project(filename)
 
+    s = str(filename).find(langCode)
+    dblfile = str(filename)[s:]
+
     filenames = {}
     fileExtCounts = {'ldml': 0, 'lds': 0, 'ssf': 0}  # for troubleshooting purposes
     filesAll = []   # for troubleshooting purposes
+    wrongLangLds = 0
+    wrongLangLdml = 0
+    wrongLangFile = []
     for n in dblObj.namelist():
         for ext in ('ldml', 'lds', 'ssf'):
             if n.endswith("."+ext):
                 fileExtCounts[ext] += 1     # for troubleshooting purposes
                 filesAll.append(n)      # for troubleshooting purposes
-                if n in ['English.lds']:
-                    # skip/remove majority language files that sneak into projects
-                    #idea: if '_es' or '_en' in n and there's another file of the same extension in dblObj.namelist(), continue?
+                if n in ['relase/English.lds']:
+                    # skip english completely because it won't add anything to a collation anyway 
+                    # might skip over font data tho hmm
+                    wrongLangFile.append(n)
+                    wrongLangLds += 1
                     continue
-                filenames[ext] = n
-                
+                if n in ["release/Spanish.lds"] or n[-8:] in ["_en.ldml", "_es.ldml"]:
+                    # this should ideally be commented out later
+                    # primarily useful during this first run where we are filtering out the majority language files
+                    wrongLangFile.append(n)
+                    if ext == 'lds':
+                        wrongLangLds += 1
+                    elif ext == 'ldml':
+                        wrongLangLdml += 1
+                    # notably this does NOT skip these entirely yet. The code further down skips the ldml if it's in the wrong language
+                    # Spanish.lds however does NOT get skipped over unless there is a relevant lds file in the proper locale
+                    # which is prioritized when the lds file gets processed. 
+                    # ideally there should be a system in place where Spanish.lds is only referenced if the letters in the exemplars match the Spanish alphabet
+                    # and/or there isn't a collation in a relevant ldml file. 
+                    # But that requires cross-file stuff and storing info to compare what we have and don't have
+                    # Not impossible but more work and I want to make sure this alone works first
+                if ext not in filenames.keys():
+                    filenames[ext] = [n]
+                else:
+                    filenames[ext].append(n)
+    
+    if fileExtCounts['lds'] == wrongLangLds and fileExtCounts['ldml'] == wrongLangLdml:
+        logging.warning("{} contains no data-driven files specifically regarding this locale, only {}, which is/are most likely in the majority language. Ensure collation data is correct in past generated files".format(dblfile, wrongLangFile))    
+    elif len(wrongLangFile) > 0:
+        logging.warning("{} contains files {} with data from majority language, ensure collation data is correct in past generated files".format(dblfile, wrongLangFile))
+        #print(filenames)   # if you want context for what the files that do work with the locale are
+
     hasMetaDataFile = 'metadata.xml' in dblObj.namelist()
     
     # print(str(langCode) + ": " + str(fileExtCounts) + " " + str(filesAll))    # for troubleshooting purposes, uncomment when needed
@@ -476,9 +508,6 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     lang = None
     script = None
     knownVariant = False
-
-    s = str(filename).rfind(langCode)
-    dblfile = str(filename)[s:]
     
     if dblfile in skipfilesmap:
         reason = skipfilesmap[dblfile]
@@ -488,7 +517,14 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     if dblfile in knownvarsmap:
         langCode = knownvarsmap[dblfile]
         knownVariant = True
-    
+
+    b = str(langCode).find('-')
+    if b > 0:
+        fileLang = str(langCode)[:b]
+    else:
+        fileLang = str(langCode)
+        #preserves a reference to the tag the file was originally under before finding the true minimal tag to use in sldr
+        
     a = str(langCode).rfind('-')
     if knownVariant and a > 0 and str(langCode)[a+1].isupper() and str(langCode)[a+2].isupper():
         ltag = langtag(langCode)
@@ -504,7 +540,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
             else:
                 ltag = langtag(langCode)
 
-    r = str(ltag).rfind('-')
+    r = str(ltag).find('-')
     if r > 0:
         lang = str(ltag)[:r]
     else: 
@@ -528,32 +564,43 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
             langCode = exemplartag
 
     if 'ldml' in filenames:
-        with dblObj.project.open(filenames['ldml']) as inf:
-            dblLdml = Ldml(inf)
-            ldmllang = dblLdml.root.find('.//identity/language')
-            ldmlscript = dblLdml.root.find('.//identity/script')
-            ldmlterritory = dblLdml.root.find('.//identity/territory')
-            ldmlvar = dblLdml.root.find('.//identity/variant')
-            ldmllangcode = None
-            if ldmllang != None and not knownVariant: 
-                ldmllangcode = ldmllang.get('type')
-                if ldmlscript != None: 
-                    ldmllangcode = ldmllangcode + "-" + ldmlscript.get('type')
-                if ldmlterritory != None: 
-                    ldmllangcode = ldmllangcode + "-" + ldmlterritory.get('type')
-                if ldmlvar != None:
-                    ldmllangcode = ldmllangcode + "-" + ldmlvar.get('type')
-            # for cases where the ldml file is for a more specific locale than the "encompassed" one from the langCode
-            if ldmllangcode != None:
-                try:
-                    ldmltag = langtag(str(lookup(ldmllangcode).tag))
-                    if ldmllang.get('type') == lang and ldmltag != ltag:       # checks against 'lang' to avoid cases when the only ldml file in the project isn't for the language at all
-                        langCode = ldmltag
-                except KeyError: 
-                    pass
+        for c in filenames['ldml']:
+            with dblObj.project.open(c) as inf:
+                tempDblLdml = Ldml(inf)
+                templdmllang = tempDblLdml.root.find('.//identity/language')
+                if templdmllang != None and templdmllang.get('type') != lang and templdmllang.get('type') != fileLang:
+                    #skips ldml files that arent for the locale, such as leftover majority lang files
+                    print("oops")
+                    continue
+                dblLdml = tempDblLdml
+                ldmllang = templdmllang
+                ldmlscript = dblLdml.root.find('.//identity/script')
+                ldmlterritory = dblLdml.root.find('.//identity/territory')
+                ldmlvar = dblLdml.root.find('.//identity/variant')
+                ldmllangcode = None
+                if ldmllang != None and not knownVariant: 
+                    ldmllangcode = ldmllang.get('type')
+                    if ldmlscript != None: 
+                        ldmllangcode = ldmllangcode + "-" + ldmlscript.get('type')
+                    if ldmlterritory != None: 
+                        ldmllangcode = ldmllangcode + "-" + ldmlterritory.get('type')
+                    if ldmlvar != None:
+                        ldmllangcode = ldmllangcode + "-" + ldmlvar.get('type')
+                # for cases where the ldml file is for a more specific locale than the "encompassed" one from the langCode
+                if ldmllangcode != None:
+                    try:
+                        ldmltag = langtag(str(lookup(ldmllangcode).tag))
+                        print(ldmltag)
+                        print(ltag)
+                        if (ldmllang.get('type') == lang or ldmllang.get('type') == fileLang) and ldmltag != ltag:       # checks against 'lang' to avoid cases when the only ldml file in the project isn't for the language at all
+                            langCode = ldmltag
+                    except KeyError: 
+                        pass
+                print(c)
                       
     if 'ssf' in filenames:
-        with dblObj.project.open(filenames['ssf']) as inf:
+        with dblObj.project.open(filenames['ssf'][0]) as inf:
+            #have this as simply grabbing the first one because I'm pretty sure ssf doesn't appear in dbl release directory anymore but I don't want it to break if it ever does
             ssf = Ssf()
             ssf.parseSsf(inf)
             ltagp = ssf.get_lang()
@@ -607,8 +654,19 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
 
     sortSpecString = ''
     if 'lds' in filenames:
-        with codecs.getreader("utf-8")(dblObj.project.open(filenames['lds'])) as inf:
-           (sortColl, alphabet) = processLds(ldml, inf, ducetDict, replaceColl, filename, script)
+        for d in filenames['lds']:
+            if fileExtCounts['lds'] > 1 and d == "Spanish.lds":
+                #this will still grab the spanish one if there is no other lds file. 
+                # ideally we want it to grab it only if the ldml has no collation data
+                # its a start though
+                continue
+            with codecs.getreader("utf-8")(dblObj.project.open(d)) as inf:
+                (sortColl, alphabet) = processLds(ldml, inf, ducetDict, replaceColl, filename, script)
+            if sortColl != None:
+                # in rare cases where there isn't a way to knock one out, break and just keep first one
+                # not perfect solution but will prevent exciting bugs
+                # currently only file that would use this is alp
+                break
     elif replaceColl and collationElem is not None:         # note: can replaceColl ever be None? was this meant to mean False?
         vs = re.sub(r"(\s*\n)+", "\n", collationElem.text)
         if vs is not None:
