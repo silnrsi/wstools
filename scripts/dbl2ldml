@@ -756,14 +756,14 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         with dblObj.project.open("metadata.xml") as inf:
             ltagp = processMetadata(ldml, inf)
 
-    if fileExtCounts['lds'] == wrongLangLds and fileExtCounts['ldml'] == wrongLangLdml:
-        if wrongEspFile > 0 and collationWorked == False: 
+    if fileExtCounts['lds'] == wrongLangLds and fileExtCounts['ldml'] == wrongLangLdml and collationNode is not None:
+        if wrongEspFile > 0: 
             logging.warning("{} contains no data-driven files specifically regarding this locale, only {}, which are in Spanish. Ensure collation data is correct in past generated files".format(dblfile, wrongLangFile))    
-        if wrongEngFile > 0 and collationWorked == False:
+        if wrongEngFile > 0:
             #logging.warning("{} contains no data-driven files specifically regarding this locale, only {}, which are in English. This shouldn't impact anything directly but should be noted".format(dblfile, wrongLangFile))    
             pass
-    elif wrongEspFile > 0 and collationWorked == False:
-        logging.warning("{} has some files in the correct locale and some files {} with data from Spanish, ensure collation data is correct in past generated files".format(dblfile, wrongLangFile))
+    elif wrongEspFile > 0 and collationWorked == False and collationNode is not None:
+        logging.warning("{} pulls its collation data from 'Spanish.lds', ensure collation data is correct in past generated files".format(dblfile, wrongLangFile))
         #print(filenames)   # if you want context for what the files that do work with the locale are
     elif wrongEngFile > 0 and collationWorked == False:
         #logging.warning("{} has some files in the correct locale and some files {} with data from English. This shouldn't impact anything directly but should be noted".format(dblfile, wrongLangFile))

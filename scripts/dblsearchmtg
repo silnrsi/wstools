@@ -9,6 +9,7 @@ from sldr import ducet
 import sys, traceback
 from langtag import lookup, langtag
 from iso639 import iso639_3_2, iso639_2_3
+from collections import Counter
 
 try:
     import dbl
@@ -49,6 +50,7 @@ parser.add_argument('-c','--character',type=str,help='Character to search for')
 parser.add_argument('-l','--loglevel',help='Set logging level')
 parser.add_argument('-p', '--position', default = None, choices = ['initial', 'second', 'third', 'medial', 'final', 'non-final', 'non-initial', None], help="Position of character in multigraph, default None (return everything regardless of position). Note that 'second' and 'third' do NOT include final characters (i.e. 'second' will return 'xYx' but not 'xY', 'third' will return 'xxYx' but not 'xxY')")
 parser.add_argument('-n', '--number', type=int, choices = [2, 3, 4], default = 4, help="Max length of multigraphs to return. Default is max (4)")
+parser.add_argument('-o', "--order", default = 'a', choices = ['a', 'n'], help="Sort order with which to display the results. Options are 'a' (alphabetical, the default) or 'n' (numerical, from most to least common)")
 
 args = parser.parse_args()
 
@@ -59,6 +61,7 @@ if args.loglevel:
 char = args.character
 position = args.position
 number = args.number
+order = args.order
 
 if number == 2:
     if position == 'third':
@@ -113,7 +116,7 @@ for f in allfiles:
         continue
     print(f)
     multigraphs = {k.base+k.trailers: v for k, v in exemplars.all_potential_multigraphs.items()}
-    relvmultigraphs = {}
+    relvmultigraphs = Counter()
     for key, value in multigraphs.items():
         if char in key and len(key) > 1 and len(key) <= number and ' ' not in key:
             if position in ['initial', 'non-final']:
@@ -127,12 +130,16 @@ for f in allfiles:
                     relvmultigraphs[key] = value
             if position in ['final', 'non-initial']:
                 if key[len(key)-1] == char:
-                    #this only works bc i'm only returning 2-letter combos atm. would need to make smarter to detect final (len(key)?) if use more graphs
                     relvmultigraphs[key] = value
             if position == None:
                 relvmultigraphs[key] = value
-    for k,v in relvmultigraphs.items():
-        print(str(k) + " : " + str(v))
+    if order == 'a':
+        for key in sorted(relvmultigraphs):
+            print(str(key) + " : " + str(relvmultigraphs[key]))
+    if order == 'n':
+        r = relvmultigraphs.most_common()
+        for item in r:
+            print(str(item[0]) + " : " + str(item[1]))
 
 
     
