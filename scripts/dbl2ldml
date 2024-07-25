@@ -454,21 +454,28 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     wrongLangLds = 0
     wrongLangLdml = 0
     wrongLangFile = []
+    wrongEspFile = 0
+    wrongEngFile = 0
     for n in dblObj.namelist():
         for ext in ('ldml', 'lds', 'ssf'):
             if n.endswith("."+ext):
                 fileExtCounts[ext] += 1     # for troubleshooting purposes
                 filesAll.append(n)      # for troubleshooting purposes
-                if n in ['relase/English.lds']:
+                if n in ['relase/English.lds'] or n[-8:] in ["_en.ldml"]:
                     # skip english completely because it won't add anything to a collation anyway 
                     # might skip over font data tho hmm
                     wrongLangFile.append(n)
-                    wrongLangLds += 1
+                    wrongEngFile += 1
+                    if ext == 'lds':
+                        wrongLangLds += 1
+                    elif ext == 'ldml':
+                        wrongLangLdml += 1                    
                     continue
-                if n in ["release/Spanish.lds"] or n[-8:] in ["_en.ldml", "_es.ldml"]:
+                elif n in ["release/Spanish.lds"] or n[-8:] in ["_es.ldml"]:
                     # this should ideally be commented out later
                     # primarily useful during this first run where we are filtering out the majority language files
                     wrongLangFile.append(n)
+                    wrongEspFile += 1
                     if ext == 'lds':
                         wrongLangLds += 1
                     elif ext == 'ldml':
@@ -484,16 +491,10 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                     filenames[ext] = [n]
                 else:
                     filenames[ext].append(n)
-    
-    if fileExtCounts['lds'] == wrongLangLds and fileExtCounts['ldml'] == wrongLangLdml:
-        logging.warning("{} contains no data-driven files specifically regarding this locale, only {}, which is/are most likely in the majority language. Ensure collation data is correct in past generated files".format(dblfile, wrongLangFile))    
-    elif len(wrongLangFile) > 0:
-        logging.warning("{} contains files {} with data from majority language, ensure collation data is correct in past generated files".format(dblfile, wrongLangFile))
-        #print(filenames)   # if you want context for what the files that do work with the locale are
 
     hasMetaDataFile = 'metadata.xml' in dblObj.namelist()
     
-    # print(str(langCode) + ": " + str(fileExtCounts) + " " + str(filesAll))    # for troubleshooting purposes, uncomment when needed
+    #print(str(langCode) + ": " + str(fileExtCounts) + " " + str(filesAll))    # for troubleshooting purposes, uncomment when needed
 
     mainChTextOrig = None
     auxChTextOrig = None
@@ -552,16 +553,17 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         exemplars.process(t)
     exemplars.analyze()
     exemplars.normalize("NFC")
-    if len(exemplars.script) > 0 and not knownVariant: 
+    if len(exemplars.script) > 0: 
         script = exemplars.script
         # for cases where the translation text is for a more specific locale than the "encompassed" one from the langCode, i.e. file might say "wsg" but the locale is actually "wsg_Telu"
-        exemplarlangcode = lang + "-" + exemplars.script
-        try:
-            exemplartag = langtag(str(lookup(exemplarlangcode).tag))
-        except KeyError: 
-            exemplartag = langtag(exemplarlangcode)
-        if exemplartag != ltag: 
-            langCode = exemplartag
+        if not knownVariant:
+            exemplarlangcode = lang + "-" + exemplars.script
+            try:
+                exemplartag = langtag(str(lookup(exemplarlangcode).tag))
+            except KeyError: 
+                exemplartag = langtag(exemplarlangcode)
+            if exemplartag != ltag: 
+                langCode = exemplartag
 
     if 'ldml' in filenames:
         for c in filenames['ldml']:
@@ -570,7 +572,6 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                 templdmllang = tempDblLdml.root.find('.//identity/language')
                 if templdmllang != None and templdmllang.get('type') != lang and templdmllang.get('type') != fileLang:
                     #skips ldml files that arent for the locale, such as leftover majority lang files
-                    print("oops")
                     continue
                 dblLdml = tempDblLdml
                 ldmllang = templdmllang
@@ -590,13 +591,10 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                 if ldmllangcode != None:
                     try:
                         ldmltag = langtag(str(lookup(ldmllangcode).tag))
-                        print(ldmltag)
-                        print(ltag)
                         if (ldmllang.get('type') == lang or ldmllang.get('type') == fileLang) and ldmltag != ltag:       # checks against 'lang' to avoid cases when the only ldml file in the project isn't for the language at all
                             langCode = ldmltag
                     except KeyError: 
                         pass
-                print(c)
                       
     if 'ssf' in filenames:
         with dblObj.project.open(filenames['ssf'][0]) as inf:
@@ -653,21 +651,23 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         replaceColl = False
 
     sortSpecString = ''
+    prioritizeLdmlColl = True
     if 'lds' in filenames:
         for d in filenames['lds']:
-            if fileExtCounts['lds'] > 1 and d == "Spanish.lds":
-                #this will still grab the spanish one if there is no other lds file. 
-                # ideally we want it to grab it only if the ldml has no collation data
-                # its a start though
-                continue
+            if d == "release/Spanish.lds":
+                if fileExtCounts['lds'] > 1 or collationElem is not None:
+                    #this will still grab the spanish one if there is no other lds file or if there is no collation in the dblldml file
+                    continue
             with codecs.getreader("utf-8")(dblObj.project.open(d)) as inf:
                 (sortColl, alphabet) = processLds(ldml, inf, ducetDict, replaceColl, filename, script)
+                prioritizeLdmlColl = False
             if sortColl != None:
-                # in rare cases where there isn't a way to knock one out, break and just keep first one
-                # not perfect solution but will prevent exciting bugs
+                # breaks the moment there is a sortColl
+                # this is to avoid situations where there is more than one viable lds file
+                # not perfect solution but will prevent any potential redundancy weirdness
                 # currently only file that would use this is alp
                 break
-    elif replaceColl and collationElem is not None:         # note: can replaceColl ever be None? was this meant to mean False?
+    if prioritizeLdmlColl and replaceColl and collationElem is not None:        
         vs = re.sub(r"(\s*\n)+", "\n", collationElem.text)
         if vs is not None:
             vstrings = [puamap(s) for s in vs.split("\n")]
@@ -698,10 +698,12 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
             collNode.remove(collationNode)
             if not len(collNode):
                 collNode.parent.remove(collNode)
-
+    
+    collationWorked = False
     if sortColl is not None:
         try:
             sortColl._setSortKeys()
+            collationWorked = True
             exemplars.collator = sortColl
         except:
             logging.debug("Unable to create ldml collation for {}; something goes wring in '._setSortKeys' in 'collation.py' in sldrtools, collation being skipped for now".format(filename))
@@ -753,6 +755,19 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     if hasMetaDataFile:
         with dblObj.project.open("metadata.xml") as inf:
             ltagp = processMetadata(ldml, inf)
+
+    if fileExtCounts['lds'] == wrongLangLds and fileExtCounts['ldml'] == wrongLangLdml:
+        if wrongEspFile > 0 and collationWorked == False: 
+            logging.warning("{} contains no data-driven files specifically regarding this locale, only {}, which are in Spanish. Ensure collation data is correct in past generated files".format(dblfile, wrongLangFile))    
+        if wrongEngFile > 0 and collationWorked == False:
+            #logging.warning("{} contains no data-driven files specifically regarding this locale, only {}, which are in English. This shouldn't impact anything directly but should be noted".format(dblfile, wrongLangFile))    
+            pass
+    elif wrongEspFile > 0 and collationWorked == False:
+        logging.warning("{} has some files in the correct locale and some files {} with data from Spanish, ensure collation data is correct in past generated files".format(dblfile, wrongLangFile))
+        #print(filenames)   # if you want context for what the files that do work with the locale are
+    elif wrongEngFile > 0 and collationWorked == False:
+        #logging.warning("{} has some files in the correct locale and some files {} with data from English. This shouldn't impact anything directly but should be noted".format(dblfile, wrongLangFile))
+        pass
 
     dblObj.close_project()
 
