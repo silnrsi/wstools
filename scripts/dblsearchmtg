@@ -49,8 +49,8 @@ parser.add_argument('-d','--dblpath',help="Path to local zips of DBL")
 parser.add_argument('-c','--character',type=str,help='Character to search for')
 parser.add_argument('-l','--loglevel',help='Set logging level')
 parser.add_argument('-p', '--position', default = None, choices = ['initial', 'second', 'third', 'medial', 'final', 'non-final', 'non-initial', None], help="Position of character in multigraph, default None (return everything regardless of position). Note that 'second' and 'third' do NOT include final characters (i.e. 'second' will return 'xYx' but not 'xY', 'third' will return 'xxYx' but not 'xxY')")
-parser.add_argument('-n', '--number', type=int, choices = [2, 3, 4], default = 4, help="Max length of multigraphs to return. Default is max (4)")
-parser.add_argument('-o', "--order", default = 'a', choices = ['a', 'n'], help="Sort order with which to display the results. Options are 'a' (alphabetical, the default) or 'n' (numerical, from most to least common)")
+parser.add_argument('-n', '--number', type=int, choices = [2, 3, 4], default = 4, help="Max length of multigraphs to return, between 2 and 4. Default is max (4).")
+parser.add_argument('-o', '--order', default = 'a', choices = ['a', 'n'], help="Sort order with which to display the results. Options are 'a' (alphabetical, the default) or 'n' (numerical, from most to least common)")
 
 args = parser.parse_args()
 

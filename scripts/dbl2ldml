@@ -238,6 +238,21 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
     #fontElemp = ldml.ensure_path('special/sil:external-resources/sil:fontrole[@types="default"]')[0]
     # Or (more likely) this might come from the .lds file.
 
+    fontswap = {
+        "Charis SIL AmArea": ["Charis SIL", "ss04=1 cv43=2 cv68=1 cv77=1 cv90=1", "https://lff.api.languagetechnology.org/family/charissil"],
+        "Charis SIL Compact": ["Charis SIL", None, "https://lff.api.languagetechnology.org/family/charissil"],      #typetuned to have Tight spacing
+        "Charis SIL Afr": ["Charis SIL"],
+        "Charis SIL Mali": ["Charis SIL", "cv43=0 cv44=1 cv46=1"],
+        "Charis SIL Literacy": ["Charis SIL"],
+        "Charis SIL Ghana": ["Charis SIL", "cv43=0 cv46=1"]
+    }
+    #ideally (?) have both the charis sil one and the named one for clarity. change this code to instead say "if this appears ALSO add this one"
+
+    # if defaultFontValue in fontswap.keys():
+    #     _addLdsSsfDataFont(ldml, fontswap[defaultFontValue][0], defaultSizeValue)
+            # not quite right bc doesn't include features but getting there
+            # also need a "skip if already there" thing specifically for if new file rather than already in the sldr ldml
+
     xpath = 'special/sil:external-resources/sil:font[@types="default"][@name="{}"]'.format(defaultFontValue)
     allfonts = set([e.get('name') for e in ldml.findall('special/sil:external-resources/sil:font')])
     if defaultFontValue in allfonts:
@@ -623,6 +638,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                 return
             hasldml = True
     if ldml is None:
+        print("hi i'm new")
         ldml = dblLdml if dblLdml is not None else Ldml(None)
         ldml.use_draft = 'generated'
         ldml.default_draft = 'generated'
@@ -734,6 +750,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                 setattr(exemplars, t, oldValue)
         if chElem is not None:
             chElem.text = newValue
+            
 
     # Delete empty data from original LDML
     likelyEmptyAttrs = ['crossrefs', 'diacritics', 'footnotes', 'verseSegments', 'wordBreaks', 'wordFormingPunctuation']
