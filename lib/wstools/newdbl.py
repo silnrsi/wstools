@@ -446,6 +446,7 @@ def exceptions():
         "aoj_e1b773c63b9b23de.zip":"aoj-x-balif",
         "ape_0e5e9ab5304a71df.zip":"ape-x-coastal",
         "ape_9adf28ef3e43803b.zip":"ape-x-mountain",
+        "avu_25b22b576c35c0a2.zip":"avu",   # file has this under SD instead of the default SS region but there is functionally no diff
         "buu_9dfa86fef49a2749.zip":"buu-x-koya",    #Budu-Koya, rolv code 19443 
         "buu_7f38828c4ca2f6ec.zip":"buu-x-ineta",         #Budu-Nita
         #"bwu_adfa3f511e02d362.zip":"bwu",

@@ -40,6 +40,22 @@ gendraft = draftratings.get('generated', 5)
 def gettext(e):
     return e.text if e is not None else ''
 
+fontswap = {
+        "Charis SIL AmArea": ["Charis SIL", "ss04=1 cv43=2 cv68=1 cv77=1 cv90=1"],
+        "Charis SIL Compact": ["Charis SIL", None],      #typetuned to have Tight spacing
+        "Charis SIL Afr": ["Charis SIL", "cv44=1, cv46=1, cv49=1, cv77=1, ss04=1"],
+        "Charis SIL Mali": ["Charis SIL", "cv43=0 cv44=1 cv46=1"],
+        "Charis SIL Literacy": ["Charis SIL", "ss01=1"],
+        "Charis SIL Ghana": ["Charis SIL", "cv43=0 cv46=1"],
+        "Calibri" : ["Charis SIL", None],
+        "Arial" :  ["Charis SIL", None],
+        "Arial Unicode MS":  ["Charis SIL", None],
+        "Times New Roman" :  ["Charis SIL", None],
+        "Mangal":  ["Annapurna SIL", None],
+        "Maiandra GD":  ["Charis SIL", None],
+        "Cambria":  ["Charis SIL", None],
+    }
+
 class Puamap:
 
     start = 0xF134
@@ -221,7 +237,7 @@ def processLds(ldml, ldsFile, ducetDict, replaceColl, filename, script):
             fontValue = ldsConfig.get('General', 'font')
         if ldsConfig.has_option('General', 'size'):
             sizeValue = ldsConfig.get('General', 'size')
-
+        
         _addLdsSsfDataFont(ldml, fontValue, float(sizeValue or 0))
 
     if replaceColl:
@@ -238,22 +254,18 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
     #fontElemp = ldml.ensure_path('special/sil:external-resources/sil:fontrole[@types="default"]')[0]
     # Or (more likely) this might come from the .lds file.
 
-    fontswap = {
-        "Charis SIL AmArea": ["Charis SIL", "ss04=1 cv43=2 cv68=1 cv77=1 cv90=1", "https://lff.api.languagetechnology.org/family/charissil"],
-        "Charis SIL Compact": ["Charis SIL", None, "https://lff.api.languagetechnology.org/family/charissil"],      #typetuned to have Tight spacing
-        "Charis SIL Afr": ["Charis SIL"],
-        "Charis SIL Mali": ["Charis SIL", "cv43=0 cv44=1 cv46=1"],
-        "Charis SIL Literacy": ["Charis SIL"],
-        "Charis SIL Ghana": ["Charis SIL", "cv43=0 cv46=1"]
-    }
     #ideally (?) have both the charis sil one and the named one for clarity. change this code to instead say "if this appears ALSO add this one"
-
-    # if defaultFontValue in fontswap.keys():
-    #     _addLdsSsfDataFont(ldml, fontswap[defaultFontValue][0], defaultSizeValue)
-            # not quite right bc doesn't include features but getting there
-            # also need a "skip if already there" thing specifically for if new file rather than already in the sldr ldml
-
+    subsetFontValue = None
+    features = None
+    if defaultFontValue in fontswap.keys():
+        subsetFontValue = defaultFontValue
+        defaultFontValue = fontswap[defaultFontValue][0]
+            # okay so this works as far as getting it to show up as Charis instead, and preventing it from overriding existing fixed ones
+        # if fontswap[subsetFontValue][1] is not None:
+        #     features = fontswap[subsetFontValue][1] 
     xpath = 'special/sil:external-resources/sil:font[@types="default"][@name="{}"]'.format(defaultFontValue)
+    # if features is not None:
+    #     xpath += '[@features="{}"]'.format(features)
     allfonts = set([e.get('name') for e in ldml.findall('special/sil:external-resources/sil:font')])
     if defaultFontValue in allfonts:
         return
@@ -455,6 +467,125 @@ def _debugStr(item):
     result = "".join(map(unichr, item))
     result += " =" + " ".join(map(hex, item))
     return repr(result)
+
+def addMissingFontData(ldml, fonts, script):
+    #takes an ldml element 
+    
+    lffUrls = {
+        "Charis SIL" : "charissil",
+        "Aboriginal Sans" : "aboriginalsans",
+        "Abyssinica SIL" : "abyssinicasil",
+        "Akatab" : "akatab",
+        "Alkalami" : "alkalami",
+        "Andika" : "andika",
+        "Annapurna SIL" : "annapurnasil",
+        "Annapurna SIL Nepal" : "annapurnasilnepal",
+        "Awami Nastaliq" : "awaminastaliq",
+        "BJCree UNI" : "bjcree2uni",
+        "BJCree2 UNI" : "bjcreeuni",
+        "Dai Banna SIL" : "daibannasil",
+        "Doulos SIL" : "doulossil",
+        "Dukor" : "dukor",
+        "Ezra SIL" : "ezrasil",
+        "Galatia SIL" : "galatiasil",
+        "Gentium" : "gentiumplus",
+        "Gentium Plus": "gentiumplus",
+        "Harmattan" : "harmattan",
+        "Badami" : "badami",
+        "Lateef" : "lateef",
+        "Lisu Bosa" : "lisubosa",
+        "Mingzat" : "mingzat",
+        "Khmer Mondulkiri" : "khmermondulkiri",
+        "Namdhinggo" : "namdhinggosil",
+        "Nokyung" : "nokyung",
+        "Noto Sans Mongolian" : "notosansmongolian",
+        "Noto Sans Sundanese" : "notosanssundanese",
+        "Nuosu SIL" : "nuosusil",
+        "Padauk" : "padauk",
+        "Payap Lanna" : "payaplanna",
+        "Scheherazade" : "scheherazadenew",
+        "Sapushan" : "sapushan",
+        "Shimenkan" : "shimenkan",
+        "Sophia Nubian" : "sophianubian",
+        "Tai Heritage Pro" : "taiheritagepro",
+        "ThiruValluvarCTT" : "thiruvalluvar",
+    }
+
+    notLffUrls = {
+        # currently nothing, would be used for things like Noto Sans or stuff like that
+    }
+
+    removeMe = {
+        # fonts we try to not have in SLDR and the fonts to replace it with
+        "Calibri" : "Charis SIL",
+        "Arial" : "Charis SIL",
+        "Arial Unicode MS": "Charis SIL",
+        "Times New Roman" : "Charis SIL",
+        "Mangal": "Annapurna SIL",
+        "Maiandra GD": "Charis SIL",
+        "Cambria": "Charis SIL",
+        "Verdana": "Charis SIL"
+    }
+
+    fontList = {}
+    subsetFont = None
+    swapperFont = None
+    swapNeeded = False
+    features = None
+    extras = []
+    for fontElement in fonts:
+        name = fontElement.get("name")
+        fontList[name]=fontElement
+        if name in fontswap.keys():
+            subsetFont = name
+            swapperFont= fontswap[name][0]
+            swapNeeded = True
+            features = fontswap[subsetFont][1] 
+            #all of this currently assumes only one swap will ever be needed per file
+    # step 1: identify if any swappys are needed (i.e. charis sil amarea)
+    # step 2: identify if the swapped version is already in the list (i.e. charis sil). THis will likely come BEFORE the one that needs swap work
+    # step 3: when processing the latter, make sure it has the correct features
+    # step 3 alt: if step 2 is no, add that font in with the correct features, BEFORE the swappy one
+    # step 4: stip swappy of other details and add it in directly under the main font
+    # final result should have charis first with all detailsand then a font under it that says charis amarea
+    for font, fontElem  in fontList.items():
+        # print(fontElem)
+        # print(fontElem.attrib)
+        if font == swapperFont:
+            print("hi i'm the swapper")
+            if fontElem.get("features",None) != features:
+                print("hi the swapper doesn't match the features!")
+            swapNeeded = False
+        #     #at end of all this you go swapNeeded = False
+        # if font in fontswap.keys():
+        #     if swapNeeded == True:
+        #         print("hey we need a swappy here")
+        if font in removeMe.keys():
+            fontElem.parent.remove(fontElem)
+            removeFont = font
+            if removeMe[removeFont] not in fontList.keys() and removeMe[removeFont] not in extras:
+                # aka if the font we would replace this font with isn't already in the list
+                font = removeMe[removeFont]
+                fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"]'.format(font))[0]
+                extras.append(font)
+            else: 
+                continue
+        
+        if len(fontElem) == 0:
+            #no urls here we need those
+            urlEl = ldml.addnode(fontElem, 'sil:url', returnnew=True)
+            if font in lffUrls.keys():
+                urlEl.text = "https://lff.api.languagetechnology.org/family/" + lffUrls[font]
+            elif font in notLffUrls.keys():
+                urlEl.text = notLffUrls[font]
+            else:
+                print("this is missing a url")
+                fontElem.remove(urlEl)
+
+        if font == "Charis SIL" and script not in ["Latn", "Cyrl"]:
+            fontElem.parent.remove(fontElem)
+
+
 
 def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     dblObj = newdbl.DBL()
@@ -751,6 +882,8 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         if chElem is not None:
             chElem.text = newValue
             
+    fonts =  ldml.root.findall('special/sil:external-resources/sil:font', {v:k for k,v in ldml.namespaces.items()})
+    addMissingFontData(ldml, fonts, script)
 
     # Delete empty data from original LDML
     likelyEmptyAttrs = ['crossrefs', 'diacritics', 'footnotes', 'verseSegments', 'wordBreaks', 'wordFormingPunctuation']
