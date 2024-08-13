@@ -54,7 +54,35 @@ fontswap = {
         "Mangal":  ["Annapurna SIL", None],
         "Maiandra GD":  ["Charis SIL", None],
         "Cambria":  ["Charis SIL", None],
+        "Verdana": ["Charis SIL", None],
+        "Daasun~1 Daasun~1 SILCharis": ["Charis SIL", None],
+        "Gautami": ["Noto Sans Telugu", None],
+        "SILCharis": ["Charis SIL", None],
+        "Scheherazade KasLow": ["Scheherazade New", "cv62=1"],
+        "SILDoulos IPA93": ["Doulos SIL", "cv43=2, cv77=1, ss05=1"],
+        "David Libre": ["Ezra SIL", None],
+        "David CLM": ["Ezra SIL", None],
+        "Lato": ["Charis SIL", None],
+        "MS Outlook": ["Charis SIL", None],
+        "Georgia": ["Charis SIL", None],
+        "Khmer Barkaew": ["Khmer Busra", None],
+        "Khmer Leak Laom": ["Khmer Mondulkiri", None],
+        "Khmer Yeaklom": ["Khmer Mondulkiri", None],
+        "Khmer Oyadaw": ["Khmer Mondulkiri", None],
+        "Annapurna SIL Beta 1 spvisarga2": ["Annapurna SIL", None],
+        "Khmer Dakdam": ["Khmer Busra", None],
+        "Khmer Dakdam YY": ["Khmer Busra", None],
+        "Khmer Dakdam1": ["Khmer Busra", None],
+        "Khmer OS": ["Khmer Mondulkiri", None],
+        "Apparatus SIL": ["Charis SIL", None],
+        "Gentium Basic": ["Gentium Plus", None]
     }
+
+fontExceptions = {
+    # for cases where there's no way to hard-code this change 
+    # but you don't want to double check to make sure it didn't replace it every time you merge in new data
+    "emp_3c8ed09b9e38c6f3.zip" : "Charis SIL"
+}
 
 class Puamap:
 
@@ -145,9 +173,9 @@ class Ssf:
     def get_lang(self):
         return self.ssfLangData['LanguageIsoCode']
 
-    def process(self, ldml):
+    def process(self, ldml, filename):
         if self.ssfLangData['DefaultFont'] or self.ssfLangData['DefaultFontSize'] :
-            _addLdsSsfDataFont(ldml, self.ssfLangData['DefaultFont'], float(self.ssfLangData['DefaultFontSize']) * 14)
+            _addLdsSsfDataFont(ldml, self.ssfLangData['DefaultFont'], float(self.ssfLangData['DefaultFontSize']) * 14, filename)
         if self.ssfLangData['Pairs'] :
             self._addSsfDataPairs(ldml, self.ssfLangData['Pairs'])
         if self.ssfLangData['Quotes'] :
@@ -238,7 +266,7 @@ def processLds(ldml, ldsFile, ducetDict, replaceColl, filename, script):
         if ldsConfig.has_option('General', 'size'):
             sizeValue = ldsConfig.get('General', 'size')
         
-        _addLdsSsfDataFont(ldml, fontValue, float(sizeValue or 0))
+        _addLdsSsfDataFont(ldml, fontValue, float(sizeValue or 0), filename)
 
     if replaceColl:
         simpleColls = readLdsCollation(ldsConfig)
@@ -247,7 +275,7 @@ def processLds(ldml, ldsFile, ducetDict, replaceColl, filename, script):
     return (None, None)
 
 
-def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
+def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue, filename) :
     # DefaultFont, DefaultFontSize ->
     # special/sil:external-resources/sil:fontrole[@types="default"]/sil:font[@name, @size]
     # TODO: this isn't quite right since it should handle an existing sil:fontrole[@types="default heading"]
@@ -261,8 +289,11 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue) :
         subsetFontValue = defaultFontValue
         defaultFontValue = fontswap[defaultFontValue][0]
             # okay so this works as far as getting it to show up as Charis instead, and preventing it from overriding existing fixed ones
-        # if fontswap[subsetFontValue][1] is not None:
-        #     features = fontswap[subsetFontValue][1] 
+    a = str(filename).rfind('/')
+    if a > 0:
+        filename = str(filename)[a+1:]
+    if filename in fontExceptions.keys():
+        defaultFontValue = fontExceptions[filename]
     xpath = 'special/sil:external-resources/sil:font[@types="default"][@name="{}"]'.format(defaultFontValue)
     # if features is not None:
     #     xpath += '[@features="{}"]'.format(features)
@@ -509,10 +540,13 @@ def addMissingFontData(ldml, fonts, script):
         "Sophia Nubian" : "sophianubian",
         "Tai Heritage Pro" : "taiheritagepro",
         "ThiruValluvarCTT" : "thiruvalluvar",
+        "Khmer Busra": "khmerbusra"
     }
 
     notLffUrls = {
         # currently nothing, would be used for things like Noto Sans or stuff like that
+        "Noto Sans Telugu": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansTelugu/NotoSansTelugu-Regular.ttf",
+        "Noto Sans": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf"
     }
 
     removeMe = {
@@ -524,7 +558,36 @@ def addMissingFontData(ldml, fonts, script):
         "Mangal": "Annapurna SIL",
         "Maiandra GD": "Charis SIL",
         "Cambria": "Charis SIL",
-        "Verdana": "Charis SIL"
+        "Verdana": "Charis SIL",
+        "Daasun~1 Daasun~1 SILCharis": "Charis SIL",
+        "Gautami":"Noto Sans Telugu",
+        "SILCharis": "Charis SIL",
+        "SIL Ezra": "Ezra SIL",
+        "SIL Galatia": "Galatia SIL",
+        "SILDoulos IPA93": "Doulos SIL",
+        "David Libre": "Ezra SIL",
+        "David CLM": "Ezra SIL",
+        "Lato": "Charis SIL",
+        "MS Outlook": "Charis SIL",
+        "Georgia": "Charis SIL",
+        "Khmer Barkaew": "Khmer Busra",
+        "Khmer Leak Laom": "Khmer Mondulkiri",
+        "Khmer Yeaklom": "Khmer Mondulkiri",
+        "Khmer Oyadaw": "Khmer Mondulkiri",
+        "Annapurna SIL Beta 1 spvisarga2": "Annapurna SIL",
+        "Khmer Dakdam": "Khmer Busra",
+        "Khmer Dakdam YY": "Khmer Busra",
+        "Khmer Dakdam1": "Khmer Busra",
+        "Khmer OS": "Khmer Mondulkiri",
+        "Apparatus SIL": "Charis SIL",
+        "Gentium Basic": "Gentium Plus",
+        "Tai Khamti": "Padauk",
+        "Namkio Khamti": "Padauk"
+    }
+
+    stowaways = {
+        "Charis SIL" : ["Latn", "Cyrl"],
+        "Doulos SIL" : ["Latn", "Cyrl", "Grek", "Copt"]
     }
 
     fontList = {}
@@ -549,12 +612,12 @@ def addMissingFontData(ldml, fonts, script):
     # step 4: stip swappy of other details and add it in directly under the main font
     # final result should have charis first with all detailsand then a font under it that says charis amarea
     for font, fontElem  in fontList.items():
+        print(font)
         # print(fontElem)
         # print(fontElem.attrib)
         if font == swapperFont:
-            print("hi i'm the swapper")
             if fontElem.get("features",None) != features:
-                print("hi the swapper doesn't match the features!")
+                fontElem.set("features", features)
             swapNeeded = False
         #     #at end of all this you go swapNeeded = False
         # if font in fontswap.keys():
@@ -582,7 +645,7 @@ def addMissingFontData(ldml, fonts, script):
                 print("this is missing a url")
                 fontElem.remove(urlEl)
 
-        if font == "Charis SIL" and script not in ["Latn", "Cyrl"]:
+        if font in stowaways.keys() and script not in stowaways[font]:
             fontElem.parent.remove(fontElem)
 
 
@@ -899,7 +962,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         charNode.remove(specialNode)
 
     if ssf is not None:
-        ssf.process(ldml)
+        ssf.process(ldml, filename)
 
 
     if hasMetaDataFile:
