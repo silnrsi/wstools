@@ -55,6 +55,7 @@ fontswap = {
         "Maiandra GD":  ["Charis SIL", None],
         "Cambria":  ["Charis SIL", None],
         "Verdana": ["Charis SIL", None],
+        "Courier New": ["Charis SIL", None],
         "Daasun~1 Daasun~1 SILCharis": ["Charis SIL", None],
         "Gautami": ["Noto Sans Telugu", None],
         "SILCharis": ["Charis SIL", None],
@@ -75,7 +76,9 @@ fontswap = {
         "Khmer Dakdam1": ["Khmer Busra", None],
         "Khmer OS": ["Khmer Mondulkiri", None],
         "Apparatus SIL": ["Charis SIL", None],
-        "Gentium Basic": ["Gentium Plus", None]
+        "Gentium Basic": ["Gentium Plus", None],
+        "Annapurna SIL Kham": ["Annapurna SIL", None],
+        "Cyrillic SILCharis": ["Charis SIL", None]
     }
 
 fontExceptions = {
@@ -551,6 +554,7 @@ def addMissingFontData(ldml, fonts, script):
 
     removeMe = {
         # fonts we try to not have in SLDR and the fonts to replace it with
+        #what's in here should be in fontswap as well and vice versa mostly. probably there's a way to merge the overlapping parts
         "Calibri" : "Charis SIL",
         "Arial" : "Charis SIL",
         "Arial Unicode MS": "Charis SIL",
@@ -559,6 +563,7 @@ def addMissingFontData(ldml, fonts, script):
         "Maiandra GD": "Charis SIL",
         "Cambria": "Charis SIL",
         "Verdana": "Charis SIL",
+        "Courier New":"Charis SIL",
         "Daasun~1 Daasun~1 SILCharis": "Charis SIL",
         "Gautami":"Noto Sans Telugu",
         "SILCharis": "Charis SIL",
@@ -582,7 +587,9 @@ def addMissingFontData(ldml, fonts, script):
         "Apparatus SIL": "Charis SIL",
         "Gentium Basic": "Gentium Plus",
         "Tai Khamti": "Padauk",
-        "Namkio Khamti": "Padauk"
+        "Namkio Khamti": "Padauk",
+        "Annapurna SIL Kham": "Annapurna SIL",
+        "Cyrillic SILCharis": "Charis SIL"
     }
 
     stowaways = {
