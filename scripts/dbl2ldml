@@ -46,6 +46,7 @@ fontswap = {
         "Charis SIL Afr": ["Charis SIL", "cv44=1, cv46=1, cv49=1, cv77=1, ss04=1"],
         "Charis SIL Mali": ["Charis SIL", "cv43=0 cv44=1 cv46=1"],
         "Charis SIL Literacy": ["Charis SIL", "ss01=1"],
+        "Charis SIL Charis SIL Literacy": ["Charis SIL", "ss01=1"],
         "Charis SIL Ghana": ["Charis SIL", "cv43=0 cv46=1"],
         "Calibri" : ["Charis SIL", None],
         "Arial" :  ["Charis SIL", None],
@@ -78,13 +79,28 @@ fontswap = {
         "Apparatus SIL": ["Charis SIL", None],
         "Gentium Basic": ["Gentium Plus", None],
         "Annapurna SIL Kham": ["Annapurna SIL", None],
-        "Cyrillic SILCharis": ["Charis SIL", None]
+        "Cyrillic SILCharis": ["Charis SIL", None],
+        "Gentium": ["Gentium Plus", None],
+        "Monlam Uni OuChan2": ["Noto Serif Tibetan", None],
+        "Sylfaen": ["Charis SIL", None],
+        "Annapurna SIL Magar": ["Annapurna SIL", None],
+        "Angsana New": ["Noto Sans Thai", None],
+        "Annapurna": ["Annapurna SIL", None],
+        "Scheherazade Urdu": ["Awami Nastaliq", None],
+        "ScheherazadeShina32 Shina32": ["Awami Nastaliq", None],
+        "Rachana": ["Noto Sans Malayalam", None],
+        "Rachana Edited": ["Noto Sans Malayalam", None],
+        "Garamond": ["Charis SIL", None],
+        "Scheherazade M4z": ["Scheherazade New", None],
+        "Scheherazade": ["Scheherazade New", None],
+
     }
 
 fontExceptions = {
     # for cases where there's no way to hard-code this change 
     # but you don't want to double check to make sure it didn't replace it every time you merge in new data
-    "emp_3c8ed09b9e38c6f3.zip" : "Charis SIL"
+    "emp_3c8ed09b9e38c6f3.zip" : "Charis SIL",
+    "ndz_b5472a584e2d47b2.zip": "Charis SIL"
 }
 
 class Puamap:
@@ -537,24 +553,30 @@ def addMissingFontData(ldml, fonts, script):
         "Nuosu SIL" : "nuosusil",
         "Padauk" : "padauk",
         "Payap Lanna" : "payaplanna",
-        "Scheherazade" : "scheherazadenew",
+        "Scheherazade New" : "scheherazadenew",
         "Sapushan" : "sapushan",
         "Shimenkan" : "shimenkan",
         "Sophia Nubian" : "sophianubian",
         "Tai Heritage Pro" : "taiheritagepro",
         "ThiruValluvarCTT" : "thiruvalluvar",
-        "Khmer Busra": "khmerbusra"
+        "Khmer Busra": "khmerbusra",
+        "Kay Pho Du": "kayphodu"
     }
 
     notLffUrls = {
         # currently nothing, would be used for things like Noto Sans or stuff like that
         "Noto Sans Telugu": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansTelugu/NotoSansTelugu-Regular.ttf",
-        "Noto Sans": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf"
+        "Noto Sans": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf",
+        "Noto Serif Tibetan": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSerifTibetan/NotoSerifTibetan-Regular.ttf",
+        "Noto Sans Thai": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansThai/NotoSansThai-Regular.ttf",
+        "Noto Sans Malayalam": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansMalayalam/NotoSansMalayalam-Regular.ttf"
     }
 
     removeMe = {
         # fonts we try to not have in SLDR and the fonts to replace it with
         #what's in here should be in fontswap as well and vice versa mostly. probably there's a way to merge the overlapping parts
+        #currently if it's a feature change but you want the name of the subset to remain, put it in fontswap ONLY
+        # otherwise everything in both
         "Calibri" : "Charis SIL",
         "Arial" : "Charis SIL",
         "Arial Unicode MS": "Charis SIL",
@@ -589,13 +611,41 @@ def addMissingFontData(ldml, fonts, script):
         "Tai Khamti": "Padauk",
         "Namkio Khamti": "Padauk",
         "Annapurna SIL Kham": "Annapurna SIL",
-        "Cyrillic SILCharis": "Charis SIL"
+        "Cyrillic SILCharis": "Charis SIL",
+        "Gentium": "Gentium Plus",
+        "Monlam Uni OuChan2": "Noto Serif Tibetan",
+        "Sylfaen": "Charis SIL",
+        "Annapurna SIL Magar": "Annapurna SIL",
+        "Angsana New": "Noto Sans Thai",
+        "Annapurna": "Annapurna SIL",
+        "Scheherazade Urdu": "Awami Nastaliq",
+        "ScheherazadeShina32 Shina32": "Awami Nastaliq",
+        "Rachana": "Noto Sans Malayalam",
+        "Rachana Edited": "Noto Sans Malayalam",
+        "Garamond": "Charis SIL",
+        "Scheherazade M4z": "Scheherazade New",
+        "Scheherazade": "Scheherazade New",
+        "Charis SIL Charis SIL Literacy": "Charis SIL Literacy"
     }
 
     stowaways = {
+        # fonts that appear in files where they should not based on the script. update as needed. 
         "Charis SIL" : ["Latn", "Cyrl"],
-        "Doulos SIL" : ["Latn", "Cyrl", "Grek", "Copt"]
+        "Doulos SIL" : ["Latn", "Cyrl", "Grek", "Copt"],
+        "Annapurna SIL": ["Deva"],
+        "Annapurna SIL Nepal": ["Deva"],
+        "Noto Sans Thai": ["Thai"]
     }
+
+    if len(fonts) == 0:
+        # if new file has no fonts in it at all
+        # code this to actually interact with script to font or something later, but for now...
+        if script == "Latn":
+            newFont = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="Charis SIL"]')[0]
+            fonts.append(newFont)
+        else:
+            print("help i am missing a font")
+
 
     fontList = {}
     subsetFont = None
@@ -618,6 +668,7 @@ def addMissingFontData(ldml, fonts, script):
     # step 3 alt: if step 2 is no, add that font in with the correct features, BEFORE the swappy one
     # step 4: stip swappy of other details and add it in directly under the main font
     # final result should have charis first with all detailsand then a font under it that says charis amarea
+    
     for font, fontElem  in fontList.items():
         print(font)
         # print(fontElem)
@@ -627,19 +678,21 @@ def addMissingFontData(ldml, fonts, script):
                 fontElem.set("features", features)
             swapNeeded = False
         #     #at end of all this you go swapNeeded = False
-        # if font in fontswap.keys():
-        #     if swapNeeded == True:
-        #         print("hey we need a swappy here")
-        if font in removeMe.keys():
-            fontElem.parent.remove(fontElem)
-            removeFont = font
-            if removeMe[removeFont] not in fontList.keys() and removeMe[removeFont] not in extras:
-                # aka if the font we would replace this font with isn't already in the list
-                font = removeMe[removeFont]
-                fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"]'.format(font))[0]
-                extras.append(font)
-            else: 
-                continue
+        if font in fontswap.keys():
+            if font in removeMe.keys():
+                #fontswap and removeme can probably be somehow consolidated but will need to do so in a way that it doesn't break the other usage of fontswap
+                fontElem.parent.remove(fontElem)
+                removeFont = font
+                if removeMe[removeFont] not in fontList.keys() and removeMe[removeFont] not in extras:
+                    # aka if the font we would replace this font with isn't already in the list
+                    font = removeMe[removeFont]
+                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"]'.format(font))[0]
+                    extras.append(font)
+                else: 
+                    continue
+            elif swapNeeded == True and font == subsetFont:
+                fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"][@features="{}"]'.format(swapperFont, features))[0]
+                font = swapperFont
         
         if len(fontElem) == 0:
             #no urls here we need those
@@ -854,6 +907,14 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     nosort = True
     sortColl = None
     collationNode = ldml.find('collations/collation[@type="standard"]')
+    removeTheseCollations = []
+    if ldml.find('collations') != None:
+        for extraCollation in ldml.find('collations'):
+            if extraCollation.get("type") != collationNode.get("type") and extraCollation.get("type") != None:
+                removeTheseCollations.append(extraCollation)
+        if len(removeTheseCollations) > 0:
+            for removeMe in removeTheseCollations:
+                removeMe.parent.remove(removeMe)
     collationElem = None
     if dblLdml is not None:
         collationElem = dblLdml.find('collations/collation[@type="standard"]/special/sil:simple')
