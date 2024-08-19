@@ -475,6 +475,7 @@ def exceptions():
         "kqe_7876fc7be8a234f1.zip":"kqe-x-east",
         "kqe_9396bdab17afda48.zip":"kqe-x-west",
         #"kus_333a4a06309f5935.zip":"kus",   
+        "lwo_94f55365a50fb16d.zip": "lwo",  # file has this under ZA instead of the default SS region but there is functionally no diff
         "mam_8eb38973d944f48a.zip":"mam-x-central",
         "mam_925bffd8dc536fee.zip":"mam-x-todos",   #mam todos santos, rolv 03470
         #"mbb":"mbb"    # there are two projects for mbb, but one is a NT and one is an OT, produced around the same time and with identical ldml & lds file contents, only dif would be exemplars from actual text

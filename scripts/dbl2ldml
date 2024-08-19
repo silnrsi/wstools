@@ -41,59 +41,61 @@ def gettext(e):
     return e.text if e is not None else ''
 
 fontswap = {
-        "Charis SIL AmArea": ["Charis SIL", "ss04=1 cv43=2 cv68=1 cv77=1 cv90=1"],
-        "Charis SIL Compact": ["Charis SIL", None],      #typetuned to have Tight spacing
-        "Charis SIL Afr": ["Charis SIL", "cv44=1, cv46=1, cv49=1, cv77=1, ss04=1"],
-        "Charis SIL Mali": ["Charis SIL", "cv43=0 cv44=1 cv46=1"],
-        "Charis SIL Literacy": ["Charis SIL", "ss01=1"],
-        "Charis SIL Charis SIL Literacy": ["Charis SIL", "ss01=1"],
-        "Charis SIL Ghana": ["Charis SIL", "cv43=0 cv46=1"],
-        "Calibri" : ["Charis SIL", None],
-        "Arial" :  ["Charis SIL", None],
-        "Arial Unicode MS":  ["Charis SIL", None],
-        "Times New Roman" :  ["Charis SIL", None],
-        "Mangal":  ["Annapurna SIL", None],
-        "Maiandra GD":  ["Charis SIL", None],
-        "Cambria":  ["Charis SIL", None],
-        "Verdana": ["Charis SIL", None],
-        "Courier New": ["Charis SIL", None],
-        "Daasun~1 Daasun~1 SILCharis": ["Charis SIL", None],
-        "Gautami": ["Noto Sans Telugu", None],
-        "SILCharis": ["Charis SIL", None],
-        "Scheherazade KasLow": ["Scheherazade New", "cv62=1"],
-        "SILDoulos IPA93": ["Doulos SIL", "cv43=2, cv77=1, ss05=1"],
-        "David Libre": ["Ezra SIL", None],
-        "David CLM": ["Ezra SIL", None],
-        "Lato": ["Charis SIL", None],
-        "MS Outlook": ["Charis SIL", None],
-        "Georgia": ["Charis SIL", None],
-        "Khmer Barkaew": ["Khmer Busra", None],
-        "Khmer Leak Laom": ["Khmer Mondulkiri", None],
-        "Khmer Yeaklom": ["Khmer Mondulkiri", None],
-        "Khmer Oyadaw": ["Khmer Mondulkiri", None],
-        "Annapurna SIL Beta 1 spvisarga2": ["Annapurna SIL", None],
-        "Khmer Dakdam": ["Khmer Busra", None],
-        "Khmer Dakdam YY": ["Khmer Busra", None],
-        "Khmer Dakdam1": ["Khmer Busra", None],
-        "Khmer OS": ["Khmer Mondulkiri", None],
-        "Apparatus SIL": ["Charis SIL", None],
-        "Gentium Basic": ["Gentium Plus", None],
-        "Annapurna SIL Kham": ["Annapurna SIL", None],
-        "Cyrillic SILCharis": ["Charis SIL", None],
-        "Gentium": ["Gentium Plus", None],
-        "Monlam Uni OuChan2": ["Noto Serif Tibetan", None],
-        "Sylfaen": ["Charis SIL", None],
-        "Annapurna SIL Magar": ["Annapurna SIL", None],
-        "Angsana New": ["Noto Sans Thai", None],
-        "Annapurna": ["Annapurna SIL", None],
-        "Scheherazade Urdu": ["Awami Nastaliq", None],
-        "ScheherazadeShina32 Shina32": ["Awami Nastaliq", None],
-        "Rachana": ["Noto Sans Malayalam", None],
-        "Rachana Edited": ["Noto Sans Malayalam", None],
-        "Garamond": ["Charis SIL", None],
-        "Scheherazade M4z": ["Scheherazade New", None],
-        "Scheherazade": ["Scheherazade New", None],
-
+        "Charis SIL AmArea": ["Charis SIL", "ss04=1 cv43=2 cv68=1 cv77=1 cv90=1", None],
+        "Charis SIL Compact": ["Charis SIL", None, None],      #typetuned to have Tight spacing
+        "Charis SIL Afr": ["Charis SIL", "cv44=1, cv46=1, cv49=1, cv77=1, ss04=1", None],
+        "Charis SIL Mali": ["Charis SIL", "cv43=0 cv44=1 cv46=1", None],
+        "Charis SIL Literacy": ["Charis SIL", "ss01=1", None],
+        "Charis SIL Charis SIL Literacy": ["Charis SIL", "ss01=1", None],
+        "Charis SIL Ghana": ["Charis SIL", "cv43=0 cv46=1", None],
+        "Calibri" : ["Charis SIL", None, None],
+        "Arial" :  ["Charis SIL", None, None],
+        "Arial Unicode MS":  ["Charis SIL", None, None],
+        "Times New Roman" :  ["Charis SIL", None, None],
+        "Mangal":  ["Annapurna SIL", None, None],
+        "Maiandra GD":  ["Charis SIL", None, None],
+        "Cambria":  ["Charis SIL", None, None],
+        "Verdana": ["Charis SIL", None, None],
+        "Courier New": ["Charis SIL", None, None],
+        "Daasun~1 Daasun~1 SILCharis": ["Charis SIL", None, None],
+        "Gautami": ["Noto Sans Telugu", None, None],
+        "SILCharis": ["Charis SIL", None, None],
+        "Scheherazade KasLow": ["Scheherazade New", "cv62=1", None],
+        "SILDoulos IPA93": ["Doulos SIL", "cv43=2, cv77=1, ss05=1", None],
+        "David Libre": ["Ezra SIL", None, None],
+        "David CLM": ["Ezra SIL", None, None],
+        "Lato": ["Charis SIL", None, None],
+        "MS Outlook": ["Charis SIL", None, None],
+        "Georgia": ["Charis SIL", None, None],
+        "Khmer Barkaew": ["Khmer Busra", None, None],
+        "Khmer Leak Laom": ["Khmer Mondulkiri", None, None],
+        "Khmer Yeaklom": ["Khmer Mondulkiri", None, None],
+        "Khmer Oyadaw": ["Khmer Mondulkiri", None, None],
+        "Annapurna SIL Beta 1 spvisarga2": ["Annapurna SIL", None, None],
+        "Khmer Dakdam": ["Khmer Busra", None, None],
+        "Khmer Dakdam YY": ["Khmer Busra", None, None],
+        "Khmer Dakdam1": ["Khmer Busra", None, None],
+        "Khmer OS": ["Khmer Mondulkiri", None, None],
+        "Apparatus SIL": ["Charis SIL", None, None],
+        "Gentium Basic": ["Gentium Plus", None, None],
+        "Annapurna SIL Kham": ["Annapurna SIL", None, None],
+        "Cyrillic SILCharis": ["Charis SIL", None, None],
+        "Gentium": ["Gentium Plus", None, None],
+        "Monlam Uni OuChan2": ["Noto Serif Tibetan", None, None],
+        "Sylfaen": ["Charis SIL", None, None],
+        "Annapurna SIL Magar": ["Annapurna SIL", None, None],
+        "Angsana New": ["Noto Sans Thai", None, None],
+        "Annapurna": ["Annapurna SIL", None, None],
+        "Scheherazade Urdu": ["Scheherazade New", None, "ur"],
+        "Rachana": ["Noto Sans Malayalam", None, None],
+        "Rachana Edited": ["Noto Sans Malayalam", None, None],
+        "Garamond": ["Charis SIL", None, None],
+        "Scheherazade M4z": ["Scheherazade New", None, None],
+        "Scheherazade": ["Scheherazade New", None, None],
+        "Century": ["Charis SIL", None, None],
+        "Tahoma": ["Charis SIL", None, None],
+        "Constantia": ["Charis SIL", None, None],
+        "Californian FB": ["Charis SIL", None, None],
     }
 
 fontExceptions = {
@@ -519,7 +521,6 @@ def _debugStr(item):
     return repr(result)
 
 def addMissingFontData(ldml, fonts, script):
-    #takes an ldml element 
     
     lffUrls = {
         "Charis SIL" : "charissil",
@@ -576,6 +577,7 @@ def addMissingFontData(ldml, fonts, script):
         # fonts we try to not have in SLDR and the fonts to replace it with
         #what's in here should be in fontswap as well and vice versa mostly. probably there's a way to merge the overlapping parts
         #currently if it's a feature change but you want the name of the subset to remain, put it in fontswap ONLY
+        # if it's one of the rare None ones where there is no good swap so just delete it only goes in removeMe
         # otherwise everything in both
         "Calibri" : "Charis SIL",
         "Arial" : "Charis SIL",
@@ -618,14 +620,18 @@ def addMissingFontData(ldml, fonts, script):
         "Annapurna SIL Magar": "Annapurna SIL",
         "Angsana New": "Noto Sans Thai",
         "Annapurna": "Annapurna SIL",
-        "Scheherazade Urdu": "Awami Nastaliq",
-        "ScheherazadeShina32 Shina32": "Awami Nastaliq",
+        "ScheherazadeShina32 Shina32": None,
         "Rachana": "Noto Sans Malayalam",
         "Rachana Edited": "Noto Sans Malayalam",
         "Garamond": "Charis SIL",
         "Scheherazade M4z": "Scheherazade New",
         "Scheherazade": "Scheherazade New",
-        "Charis SIL Charis SIL Literacy": "Charis SIL Literacy"
+        "Charis SIL Charis SIL Literacy": "Charis SIL Literacy",
+        "DejaVu Serif": None,
+        "Century": "Charis SIL",
+        "Tahoma": "Charis SIL",
+        "Constantia": "Charis SIL",
+        "Californian FB": "Charis SIL",
     }
 
     stowaways = {
@@ -637,21 +643,29 @@ def addMissingFontData(ldml, fonts, script):
         "Noto Sans Thai": ["Thai"]
     }
 
-    if len(fonts) == 0:
-        # if new file has no fonts in it at all
-        # code this to actually interact with script to font or something later, but for now...
-        if script == "Latn":
-            newFont = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="Charis SIL"]')[0]
-            fonts.append(newFont)
-        else:
-            print("help i am missing a font")
+    def _handleNoFonts(fonts):
+        # for when there are no fonts at all
+        if len(fonts) == 0:
+            # if new file has no fonts in it at all
+            # code this to actually interact with script to font or something later, but for now...
+            if script == "Latn":
+                newFont = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="Charis SIL"]')[0]
+                fonts.append(newFont)
+            if script == "Deva":
+                newFont = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="Annapurna SIL"]')[0]
+                fonts.append(newFont)
+            else:
+                print("help i am missing a font")
+        return fonts        
 
+    fonts = _handleNoFonts(fonts)
 
     fontList = {}
     subsetFont = None
     swapperFont = None
     swapNeeded = False
     features = None
+    langSetting = None
     extras = []
     for fontElement in fonts:
         name = fontElement.get("name")
@@ -661,6 +675,7 @@ def addMissingFontData(ldml, fonts, script):
             swapperFont= fontswap[name][0]
             swapNeeded = True
             features = fontswap[subsetFont][1] 
+            langSetting = fontswap[subsetFont][2] 
             #all of this currently assumes only one swap will ever be needed per file
     # step 1: identify if any swappys are needed (i.e. charis sil amarea)
     # step 2: identify if the swapped version is already in the list (i.e. charis sil). THis will likely come BEFORE the one that needs swap work
@@ -676,26 +691,48 @@ def addMissingFontData(ldml, fonts, script):
         if font == swapperFont:
             if fontElem.get("features",None) != features:
                 fontElem.set("features", features)
+            if fontElem.get("lang",None) != langSetting:
+                fontElem.set("lang", langSetting)
             swapNeeded = False
         #     #at end of all this you go swapNeeded = False
+        if font in removeMe.keys():
+            #fontswap and removeme can probably be somehow consolidated but will need to do so in a way that it doesn't break the other usage of fontswap
+            fontElem.parent.remove(fontElem)
+            removeFont = font
+            if removeMe[removeFont] == None:
+                print("just delete")
+                #for rare edge cases where the easiest solution is to just delete it and don't replace with anything
+                continue
+            if removeMe[removeFont] not in fontList.keys() and removeMe[removeFont] not in extras:
+                # aka if the font we would replace this font with isn't already in the list
+                font = removeMe[removeFont]
+                fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"]'.format(font))[0]
+                extras.append(font)
+            else: 
+                continue
         if font in fontswap.keys():
-            if font in removeMe.keys():
-                #fontswap and removeme can probably be somehow consolidated but will need to do so in a way that it doesn't break the other usage of fontswap
-                fontElem.parent.remove(fontElem)
-                removeFont = font
-                if removeMe[removeFont] not in fontList.keys() and removeMe[removeFont] not in extras:
-                    # aka if the font we would replace this font with isn't already in the list
-                    font = removeMe[removeFont]
-                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"]'.format(font))[0]
-                    extras.append(font)
-                else: 
-                    continue
-            elif swapNeeded == True and font == subsetFont:
-                fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"][@features="{}"]'.format(swapperFont, features))[0]
+            if swapNeeded == True and font == subsetFont:
+                if langSetting == None and features == None:
+                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"]'.format(swapperFont))[0]
+                elif langSetting != None and features == None:
+                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"][@lang="{}"]'.format(swapperFont, langSetting))[0]
+                elif langSetting == None and features != None:
+                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"][@features="{}"]'.format(swapperFont, features))[0]
+                else:
+                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"][@features="{}"][@lang="{}"]'.format(swapperFont, features, langSetting))[0]
                 font = swapperFont
-        
+
+        if font in stowaways.keys() and script not in stowaways[font]:
+            fontElem.parent.remove(fontElem)
+            if len(fontList.items()) == 1:
+                #aka if you just deleted the only font in the list
+                fonts = ldml.findall('special/sil:external-resources/')
+                fonts = _handleNoFonts(fonts)
+                font = fonts[0].get("name")
+                fontElem = fonts[0]
+
         if len(fontElem) == 0:
-            #no urls here we need those
+            #aka if there isn't a url
             urlEl = ldml.addnode(fontElem, 'sil:url', returnnew=True)
             if font in lffUrls.keys():
                 urlEl.text = "https://lff.api.languagetechnology.org/family/" + lffUrls[font]
@@ -704,9 +741,6 @@ def addMissingFontData(ldml, fonts, script):
             else:
                 print("this is missing a url")
                 fontElem.remove(urlEl)
-
-        if font in stowaways.keys() and script not in stowaways[font]:
-            fontElem.parent.remove(fontElem)
 
 
 
