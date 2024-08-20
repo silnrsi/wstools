@@ -697,11 +697,13 @@ def addMissingFontData(ldml, fonts, script):
         urlEl = ldml.addnode(fontElem, 'sil:url', returnnew=True)
         if font in lffUrls.keys():
             urlEl.text = "https://lff.api.languagetechnology.org/family/" + lffUrls[font]
+            return False
         elif font in notLffUrls.keys():
             urlEl.text = notLffUrls[font]
+            return False
         else:
-            print("this is missing a url")
             fontElem.remove(urlEl)
+            return True
 
     fonts = _handleNoFonts(fonts)
 
@@ -712,6 +714,7 @@ def addMissingFontData(ldml, fonts, script):
     features = None
     langSetting = None
     extras = []
+    linksMissing = False
     for fontElement in fonts:
         name = fontElement.get("name")
         fontList[name]=fontElement
@@ -730,14 +733,14 @@ def addMissingFontData(ldml, fonts, script):
     # final result should have charis first with all detailsand then a font under it that says charis amarea
     
     for font, fontElem  in fontList.items():
-        print(font)
         # print(fontElem)
         # print(fontElem.attrib)
         if font == swapperFont:
-            if fontElem.get("features",None) != features:
+            if features is not None and fontElem.get("features",None) != features:
                 fontElem.set("features", features)
-            if fontElem.get("lang",None) != langSetting:
+            if langSetting is not None and fontElem.get("lang",None) != langSetting:
                 fontElem.set("lang", langSetting)
+                
             swapNeeded = False
         #     #at end of all this you go swapNeeded = False
         if font in removeMe.keys():
@@ -757,14 +760,14 @@ def addMissingFontData(ldml, fonts, script):
                 continue
         if len(fontElem) == 0:
             #aka if there isn't a url
-            _addLink(font, fontElem)
+            linksMissing = _addLink(font, fontElem)
         if font in fontswap.keys():
-            if swapNeeded == True and font == subsetFont:
-                if langSetting == None and features == None:
+            if swapNeeded is True and font == subsetFont:
+                if langSetting is None and features is None:
                     fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"]'.format(swapperFont))[0]
-                elif langSetting != None and features == None:
+                elif langSetting is not None and features is None:
                     fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@lang="{}"]'.format(swapperFont, langSetting))[0]
-                elif langSetting == None and features != None:
+                elif langSetting is None and features is not None:
                     fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@features="{}"]'.format(swapperFont, features))[0]
                 else:
                     fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@features="{}"][@lang="{}"]'.format(swapperFont, features, langSetting))[0]
@@ -784,7 +787,12 @@ def addMissingFontData(ldml, fonts, script):
 
         if len(fontElem) == 0:
             #aka if there isn't a url
-            _addLink(font, fontElem)
+            linksMissing = _addLink(font, fontElem)
+            if linksMissing:
+                if font in fontswap.keys() and font not in removeMe.keys():
+                    pass    # this is one of the ones that we leave without links for now?
+                else:
+                    print("{} is missing a url".format(font))
 
 
 
