@@ -492,7 +492,7 @@ def exceptions():
         "tuc_79eafcc60f337d8c.zip":"tuc-x-oov",
         "tuc_00f8a1a8be6d4cbd.zip":"tuc-x-tuam",
         "tuo_9e63cdeff066ea65.zip":"tuo-CO",
-        "tzj_28b49503236ab541.zip":"tzq-x-western",
+        "tzj_28b49503236ab541.zip":"tzj-x-western",
         "tzo_89a655d8cecbd0b5.zip":"tzo-x-zinacntn",
         "tzo_d3c1a6a5b1a6d906.zip":"tzo-x-huixtan",
         "tzo_d2852d0e5004eee9.zip":"tzo-x-sanandre",

@@ -96,6 +96,9 @@ fontswap = {
         "Tahoma": ["Charis SIL", None, None],
         "Constantia": ["Charis SIL", None, None],
         "Californian FB": ["Charis SIL", None, None],
+        "Annapurna SIL Syuba": ["Annapurna SIL", None, None],
+        "Annapurna SIL Nepal": ["Annapurna SIL", "ss01=1 ss08=1 ss09=1 ss10=1", None],   # adds the features to adjacent Annapurna SIL files but also keeps the link to the specific nepal one 
+        "Book Antiqua": ["Charis SIL", None, None]
     }
 
 fontExceptions = {
@@ -105,6 +108,17 @@ fontExceptions = {
     "ndz_b5472a584e2d47b2.zip": "Charis SIL"
 }
 
+stowaways = {
+    # fonts that appear in files where they should not based on the script. update as needed. 
+    "Charis SIL" : ["Latn", "Cyrl"],
+    "Doulos SIL" : ["Latn", "Cyrl", "Grek", "Copt"],
+    "Annapurna SIL": ["Deva"],
+    "Annapurna SIL Nepal": ["Deva"],
+    "Noto Sans Thai": ["Thai"],
+    "Noto Sans Malayalam": ["Mylm"],
+    "Tagmukay": ["Tfng"],
+    "Abyssinica SIL": ["Ethi"]
+}
 class Puamap:
 
     start = 0xF134
@@ -287,7 +301,7 @@ def processLds(ldml, ldsFile, ducetDict, replaceColl, filename, script):
         if ldsConfig.has_option('General', 'size'):
             sizeValue = ldsConfig.get('General', 'size')
         
-        _addLdsSsfDataFont(ldml, fontValue, float(sizeValue or 0), filename)
+        _addLdsSsfDataFont(ldml, fontValue, float(sizeValue or 0), filename, script)
 
     if replaceColl:
         simpleColls = readLdsCollation(ldsConfig)
@@ -296,7 +310,7 @@ def processLds(ldml, ldsFile, ducetDict, replaceColl, filename, script):
     return (None, None)
 
 
-def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue, filename) :
+def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue, filename, script=None) :
     # DefaultFont, DefaultFontSize ->
     # special/sil:external-resources/sil:fontrole[@types="default"]/sil:font[@name, @size]
     # TODO: this isn't quite right since it should handle an existing sil:fontrole[@types="default heading"]
@@ -306,6 +320,20 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue, filename) :
     #ideally (?) have both the charis sil one and the named one for clarity. change this code to instead say "if this appears ALSO add this one"
     subsetFontValue = None
     features = None
+
+    if script == None:
+        s = ldml.find('identity/script')
+        i = ldml.root.find(".//identity/special/sil:identity", {v:k for k,v in ldml.namespaces.items()})
+        if s is not None:
+            script = s.text
+        elif i is not None:
+            script = i.get("script")
+    
+    if script is not None:
+        if defaultFontValue in stowaways.keys() and script not in stowaways[defaultFontValue]:
+            #if the font is not for the correct script, bail
+            return
+
     if defaultFontValue in fontswap.keys():
         subsetFontValue = defaultFontValue
         defaultFontValue = fontswap[defaultFontValue][0]
@@ -561,16 +589,21 @@ def addMissingFontData(ldml, fonts, script):
         "Tai Heritage Pro" : "taiheritagepro",
         "ThiruValluvarCTT" : "thiruvalluvar",
         "Khmer Busra": "khmerbusra",
-        "Kay Pho Du": "kayphodu"
+        "Kay Pho Du": "kayphodu",
+        "Surma": "surma",
+        "Tagmukay": "tagmukay",
+        "Japa Sans Oriya": "japasansoriya"
     }
 
     notLffUrls = {
-        # currently nothing, would be used for things like Noto Sans or stuff like that
         "Noto Sans Telugu": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansTelugu/NotoSansTelugu-Regular.ttf",
         "Noto Sans": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf",
         "Noto Serif Tibetan": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSerifTibetan/NotoSerifTibetan-Regular.ttf",
         "Noto Sans Thai": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansThai/NotoSansThai-Regular.ttf",
-        "Noto Sans Malayalam": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansMalayalam/NotoSansMalayalam-Regular.ttf"
+        "Noto Sans Malayalam": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansMalayalam/NotoSansMalayalam-Regular.ttf",
+        "Noto Sans Syloti Nagri": "https://github.com/notofonts/noto-fonts/raw/main/hinted/ttf/NotoSansSylotiNagri/NotoSansSylotiNagri-Regular.ttf",
+        "Noto Sans Kannada": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansKannada/NotoSansKannada-Regular.ttf",
+        "Noto Serif Kannada": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSerifKannada/NotoSerifKannada-Regular.ttf"
     }
 
     removeMe = {
@@ -632,16 +665,18 @@ def addMissingFontData(ldml, fonts, script):
         "Tahoma": "Charis SIL",
         "Constantia": "Charis SIL",
         "Californian FB": "Charis SIL",
+        "Annapurna SIL Syuba": "Annapurna SIL",
+        "Tunga": "Badami",
+        "Kalinga": "Japa Sans Oriya",
+        "Book Antiqua": "Charis SIL"
     }
 
-    stowaways = {
-        # fonts that appear in files where they should not based on the script. update as needed. 
-        "Charis SIL" : ["Latn", "Cyrl"],
-        "Doulos SIL" : ["Latn", "Cyrl", "Grek", "Copt"],
-        "Annapurna SIL": ["Deva"],
-        "Annapurna SIL Nepal": ["Deva"],
-        "Noto Sans Thai": ["Thai"]
-    }
+    automaticDefaults = [
+        # fonts that NEED the default tag to ensure it pops up first in lff
+        # example: Annapurna SIL Nepal often shows up next to Annapurna SIL, but the former is more specific than the latter
+        "Annapurna SIL Nepal",
+        "Badami"
+    ]
 
     def _handleNoFonts(fonts):
         # for when there are no fonts at all
@@ -657,6 +692,16 @@ def addMissingFontData(ldml, fonts, script):
             else:
                 print("help i am missing a font")
         return fonts        
+    
+    def _addLink(font, fontElem):
+        urlEl = ldml.addnode(fontElem, 'sil:url', returnnew=True)
+        if font in lffUrls.keys():
+            urlEl.text = "https://lff.api.languagetechnology.org/family/" + lffUrls[font]
+        elif font in notLffUrls.keys():
+            urlEl.text = notLffUrls[font]
+        else:
+            print("this is missing a url")
+            fontElem.remove(urlEl)
 
     fonts = _handleNoFonts(fonts)
 
@@ -670,7 +715,7 @@ def addMissingFontData(ldml, fonts, script):
     for fontElement in fonts:
         name = fontElement.get("name")
         fontList[name]=fontElement
-        if name in fontswap.keys():
+        if name in fontswap.keys() and name not in removeMe.keys():
             subsetFont = name
             swapperFont= fontswap[name][0]
             swapNeeded = True
@@ -706,21 +751,27 @@ def addMissingFontData(ldml, fonts, script):
             if removeMe[removeFont] not in fontList.keys() and removeMe[removeFont] not in extras:
                 # aka if the font we would replace this font with isn't already in the list
                 font = removeMe[removeFont]
-                fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"]'.format(font))[0]
+                fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"]'.format(font))[0]
                 extras.append(font)
             else: 
                 continue
+        if len(fontElem) == 0:
+            #aka if there isn't a url
+            _addLink(font, fontElem)
         if font in fontswap.keys():
             if swapNeeded == True and font == subsetFont:
                 if langSetting == None and features == None:
-                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"]'.format(swapperFont))[0]
+                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"]'.format(swapperFont))[0]
                 elif langSetting != None and features == None:
-                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"][@lang="{}"]'.format(swapperFont, langSetting))[0]
+                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@lang="{}"]'.format(swapperFont, langSetting))[0]
                 elif langSetting == None and features != None:
-                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"][@features="{}"]'.format(swapperFont, features))[0]
+                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@features="{}"]'.format(swapperFont, features))[0]
                 else:
-                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"][@features="{}"][@lang="{}"]'.format(swapperFont, features, langSetting))[0]
+                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@features="{}"][@lang="{}"]'.format(swapperFont, features, langSetting))[0]
                 font = swapperFont
+
+        if font in automaticDefaults:
+            fontElem.set("types", "default")
 
         if font in stowaways.keys() and script not in stowaways[font]:
             fontElem.parent.remove(fontElem)
@@ -733,14 +784,7 @@ def addMissingFontData(ldml, fonts, script):
 
         if len(fontElem) == 0:
             #aka if there isn't a url
-            urlEl = ldml.addnode(fontElem, 'sil:url', returnnew=True)
-            if font in lffUrls.keys():
-                urlEl.text = "https://lff.api.languagetechnology.org/family/" + lffUrls[font]
-            elif font in notLffUrls.keys():
-                urlEl.text = notLffUrls[font]
-            else:
-                print("this is missing a url")
-                fontElem.remove(urlEl)
+            _addLink(font, fontElem)
 
 
 
@@ -812,6 +856,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     lang = None
     script = None
     knownVariant = False
+    varRegion = None
     
     if dblfile in skipfilesmap:
         reason = skipfilesmap[dblfile]
@@ -832,6 +877,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     a = str(langCode).rfind('-')
     if knownVariant and a > 0 and str(langCode)[a+1].isupper() and str(langCode)[a+2].isupper():
         ltag = langtag(langCode)
+        varRegion = str(langCode)[a+1] + str(langCode)[a+2]
         #this is because some of the knownVariants distinguish between regions that langtags will consider one tag and will therefore remove the region under the "minimal" tag
     else:
         try:
@@ -944,8 +990,9 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     removeTheseCollations = []
     if ldml.find('collations') != None:
         for extraCollation in ldml.find('collations'):
-            if extraCollation.get("type") != collationNode.get("type") and extraCollation.get("type") != None:
-                removeTheseCollations.append(extraCollation)
+            if extraCollation is not None and collationNode is not None:
+                if extraCollation.get("type") != collationNode.get("type") and extraCollation.get("type") != None:
+                    removeTheseCollations.append(extraCollation)
         if len(removeTheseCollations) > 0:
             for removeMe in removeTheseCollations:
                 removeMe.parent.remove(removeMe)
@@ -1111,7 +1158,10 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         try:
             ltagset = lookup(str(ltag))
             if ltagset.region is not None:
-                identity.set('defaultRegion', ltagset.region)
+                if ltag.region is not None:
+                    identity.set('defaultRegion', ltag.region)
+                else:
+                    identity.set('defaultRegion', ltagset.region)
             if ltagset.script is not None and ltag.script is None:
                 identity.set('script', ltagset.script)
         except KeyError:
