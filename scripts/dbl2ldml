@@ -41,6 +41,7 @@ def gettext(e):
     return e.text if e is not None else ''
 
 fontswap = {
+        # list items in order are [font to replace it with, features, language setting]
         "Charis SIL AmArea": ["Charis SIL", "ss04=1 cv43=2 cv68=1 cv77=1 cv90=1", None],
         "Charis SIL Compact": ["Charis SIL", None, None],      #typetuned to have Tight spacing
         "Charis SIL Afr": ["Charis SIL", "cv44=1, cv46=1, cv49=1, cv77=1, ss04=1", None],
@@ -119,6 +120,10 @@ stowaways = {
     "Tagmukay": ["Tfng"],
     "Abyssinica SIL": ["Ethi"]
 }
+
+newDblFiles = {}
+allGeneratedFiles = {}
+
 class Puamap:
 
     start = 0xF134
@@ -612,6 +617,7 @@ def addMissingFontData(ldml, fonts, script):
         #currently if it's a feature change but you want the name of the subset to remain, put it in fontswap ONLY
         # if it's one of the rare None ones where there is no good swap so just delete it only goes in removeMe
         # otherwise everything in both
+        # Update this every time there is a new DBL import by checking for fonts without links.
         "Calibri" : "Charis SIL",
         "Arial" : "Charis SIL",
         "Arial Unicode MS": "Charis SIL",
@@ -674,6 +680,8 @@ def addMissingFontData(ldml, fonts, script):
     automaticDefaults = [
         # fonts that NEED the default tag to ensure it pops up first in lff
         # example: Annapurna SIL Nepal often shows up next to Annapurna SIL, but the former is more specific than the latter
+        #this isn't perfect: for example if Annapurna is already default then Annapurna SIL Nepal will be second alphabetically and therefore lff will still show default Annapurna
+        # a more complex bit of code might need to be written using a dictionary saying "if both value and key are in this font list remove default from one and add default to the other"
         "Annapurna SIL Nepal",
         "Badami"
     ]
@@ -686,7 +694,7 @@ def addMissingFontData(ldml, fonts, script):
             if script == "Latn":
                 newFont = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="Charis SIL"]')[0]
                 fonts.append(newFont)
-            if script == "Deva":
+            elif script == "Deva":
                 newFont = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="Annapurna SIL"]')[0]
                 fonts.append(newFont)
             else:
@@ -728,9 +736,9 @@ def addMissingFontData(ldml, fonts, script):
     # step 1: identify if any swappys are needed (i.e. charis sil amarea)
     # step 2: identify if the swapped version is already in the list (i.e. charis sil). THis will likely come BEFORE the one that needs swap work
     # step 3: when processing the latter, make sure it has the correct features
-    # step 3 alt: if step 2 is no, add that font in with the correct features, BEFORE the swappy one
-    # step 4: stip swappy of other details and add it in directly under the main font
-    # final result should have charis first with all detailsand then a font under it that says charis amarea
+    # step 3 alt: if step 2 is no, add that font in with the correct features
+    # step 4: strip swappy of other details and add it in directly under the main font
+    # final result should have charis first with all details and then a font under it that says charis amarea
     
     for font, fontElem  in fontList.items():
         # print(fontElem)
@@ -748,7 +756,6 @@ def addMissingFontData(ldml, fonts, script):
             fontElem.parent.remove(fontElem)
             removeFont = font
             if removeMe[removeFont] == None:
-                print("just delete")
                 #for rare edge cases where the easiest solution is to just delete it and don't replace with anything
                 continue
             if removeMe[removeFont] not in fontList.keys() and removeMe[removeFont] not in extras:
@@ -792,7 +799,8 @@ def addMissingFontData(ldml, fonts, script):
                 if font in fontswap.keys() and font not in removeMe.keys():
                     pass    # this is one of the ones that we leave without links for now?
                 else:
-                    print("{} is missing a url".format(font))
+                    print("{} is missing a url, please update the dictionaries in dbl2ldml accordingly".format(font))
+                    # this references fontswap and removeMe
 
 
 
@@ -802,6 +810,8 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
 
     s = str(filename).find(langCode)
     dblfile = str(filename)[s:]
+
+    newDblFile = False
 
     filenames = {}
     fileExtCounts = {'ldml': 0, 'lds': 0, 'ssf': 0}  # for troubleshooting purposes
@@ -979,8 +989,21 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                 logging.debug("Skipping {} since in CLDR".format(filename))
                 return
             hasldml = True
+            genDate = ldml.root.find(".//identity/generation")
+            version = ldml.root.find(".//identity/version")
+            if version is not None:
+                versionDate = version.get("number")
+            else:
+                versionDate = None
+            if genDate is None and len(versionDate) < 7:
+                # if it doesn't have a "generation" element or the version number isn't a date
+                # it means the current ldml file wasn't generated via dbl
+                # these should def be checked manually for any weirdness
+                newDblFile = True
+                print("This is a new DBL file but has an SLDR equivalent")
     if ldml is None:
-        print("hi i'm new")
+        newDblFile = True
+        print("This is a new file with no equivalent in SLDR")
         ldml = dblLdml if dblLdml is not None else Ldml(None)
         ldml.use_draft = 'generated'
         ldml.default_draft = 'generated'
@@ -1182,7 +1205,9 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     ldml.normalise()
     ldml.save_as(ldmlOutputFilename)
     logging.info("{} successfully processed under: {}".format(dblfile, outfname))
-
+    if newDblFile == True:
+        newDblFiles[outfname] = dblfile     # used to identify new DBL files for manual review
+    allGeneratedFiles[dblfile] = outfname   # used to identify any duplicates that overrode each other 
 
 # end of processOneProject
 
@@ -1274,3 +1299,25 @@ if __name__ == '__main__':
         else:
             outf = sys.stdout
         ldml.serialize_xml(outf.write)
+
+    if len(newDblFiles.items()) > 0:
+        print("New LDML files generated that aren't present in the SLDR, followed by their DBL project files of origin:")
+        for n in newDblFiles.items():
+            print(n)
+    else:
+        print("No new LDML files generated from this batch of DBL files")
+
+    duplicates = {}
+    uniques = []
+    for g in allGeneratedFiles.keys():
+        outputFile = allGeneratedFiles[g]
+        if outputFile not in uniques:
+            uniques.append(outputFile)
+        else:
+            for k in [k for k,v in allGeneratedFiles.items() if v == outputFile]:
+                duplicates[k] = allGeneratedFiles[k]
+    
+    if len(duplicates.items()) > 0: 
+        print("Multiple DBL files saved to the same path, therefore overriding one or more of them. Please address these in the 'skipfilesmap' or 'knownvarsmap' dictionaries in newdbl.py:")
+        for d in duplicates.items():
+            print(d)

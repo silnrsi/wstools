@@ -440,7 +440,6 @@ def exceptions():
         #this needs to be called AFTER langtags check or otherwise skip the langtags appropriate check bc some of these aren't in langtags
         "acr_7881095a69332502.zip":'acr-x-rabinal',
         "acr_2fb7cabcc2144633.zip":"acr-x-trabinal", #traditional orthography. formerly tagged as -x-rabinal-trad
-            #NOT IN LANGTAGS
         "acr_f39e0b553b5b6e1e.zip":"acr-x-cubulco",
         "aoj_9b2f4522c94167b3.zip":"aoj-x-filifita",
         "aoj_e1b773c63b9b23de.zip":"aoj-x-balif",
@@ -482,12 +481,10 @@ def exceptions():
         "nhx_d38a664622353792.zip":"nhx-x-tatahui",
         #"noa_237c316a234a0fa7.zip":"noa", # "original orthography"
         "noa_5f19908d3d3695c1.zip":"noa-x-alt", # "alternate orthography", might get new tag name
-            #NOT IN LANGTAGS
         "okv_78b96b766ccc69b2.zip":"okv-x-etija", #Etija dialect, rolv code 15341
         "okv_804cc342b7cc775a.zip":"okv-x-ehija", #Ehija dialect, rolv code 15340
         #"ptu_e147c0d35d7dd600.zip":"ptu",
         "quc_dd5c5f7428bdbc7d.zip":"quc-x-trad",     #"traditional orthography"
-            #NOT IN LANGTAGS
         #"qvw_2b2b53c89ed39448.zip":"qvw",   
         "tuc_79eafcc60f337d8c.zip":"tuc-x-oov",
         "tuc_00f8a1a8be6d4cbd.zip":"tuc-x-tuam",
