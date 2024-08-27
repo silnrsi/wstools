@@ -123,6 +123,7 @@ stowaways = {
 
 newDblFiles = {}
 allGeneratedFiles = {}
+fontIssues = {}
 
 class Puamap:
 
@@ -555,6 +556,10 @@ def _debugStr(item):
 
 def addMissingFontData(ldml, fonts, script):
     
+    fontMissing = False
+    urlMissing = False
+    linklessFonts = []
+
     lffUrls = {
         "Charis SIL" : "charissil",
         "Aboriginal Sans" : "aboriginalsans",
@@ -686,19 +691,20 @@ def addMissingFontData(ldml, fonts, script):
         "Badami"
     ]
 
+    defaultFonts = {
+        #this could probably be made to automatically pull from script2font.csv but for now it's manual
+        "Latn": "Charis SIL",
+        "Deva": "Annapurna SIL"
+    }
+
     def _handleNoFonts(fonts):
         # for when there are no fonts at all
         if len(fonts) == 0:
             # if new file has no fonts in it at all
             # code this to actually interact with script to font or something later, but for now...
-            if script == "Latn":
-                newFont = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="Charis SIL"]')[0]
+            if script in defaultFonts.keys():
+                newFont = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="{}"]'.format(defaultFonts[script]))[0]
                 fonts.append(newFont)
-            elif script == "Deva":
-                newFont = ldml.ensure_path('special/sil:external-resources/sil:font[@types="default"][@name="Annapurna SIL"]')[0]
-                fonts.append(newFont)
-            else:
-                print("help i am missing a font")
         return fonts        
     
     def _addLink(font, fontElem):
@@ -711,6 +717,8 @@ def addMissingFontData(ldml, fonts, script):
             return False
         else:
             fontElem.remove(urlEl)
+            if font not in linklessFonts:
+                linklessFonts.append(font)
             return True
 
     fonts = _handleNoFonts(fonts)
@@ -789,18 +797,26 @@ def addMissingFontData(ldml, fonts, script):
                 #aka if you just deleted the only font in the list
                 fonts = ldml.findall('special/sil:external-resources/')
                 fonts = _handleNoFonts(fonts)
-                font = fonts[0].get("name")
-                fontElem = fonts[0]
-
-        if len(fontElem) == 0:
-            #aka if there isn't a url
-            linksMissing = _addLink(font, fontElem)
-            if linksMissing:
-                if font in fontswap.keys() and font not in removeMe.keys():
-                    pass    # this is one of the ones that we leave without links for now?
+                if len(fonts) > 0 :
+                    font = fonts[0].get("name")
+                    fontElem = fonts[0]
                 else:
-                    print("{} is missing a url, please update the dictionaries in dbl2ldml accordingly".format(font))
-                    # this references fontswap and removeMe
+                    fontMissing = True
+        
+        if len(fonts) > 0:
+            if len(fontElem) == 0:
+                #aka if there isn't a url
+                linksMissing = _addLink(font, fontElem)
+                if linksMissing:
+                    if font in fontswap.keys() and font not in removeMe.keys():
+                        pass    # this is one of the ones that we leave without links for now?
+                    else:
+                        #print("{} is missing a url, please update the dictionaries in dbl2ldml accordingly".format(font))
+                        # this references fontswap and removeMe
+                        urlMissing = True
+
+    fontErrors = [fontMissing, urlMissing, linklessFonts]
+    return fontErrors
 
 
 
@@ -812,6 +828,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     dblfile = str(filename)[s:]
 
     newDblFile = False
+    newSldrFile = False
 
     filenames = {}
     fileExtCounts = {'ldml': 0, 'lds': 0, 'ssf': 0}  # for troubleshooting purposes
@@ -1000,10 +1017,9 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                 # it means the current ldml file wasn't generated via dbl
                 # these should def be checked manually for any weirdness
                 newDblFile = True
-                print("This is a new DBL file but has an SLDR equivalent")
     if ldml is None:
         newDblFile = True
-        print("This is a new file with no equivalent in SLDR")
+        newSldrFile = True
         ldml = dblLdml if dblLdml is not None else Ldml(None)
         ldml.use_draft = 'generated'
         ldml.default_draft = 'generated'
@@ -1126,7 +1142,8 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
             chElem.text = newValue
             
     fonts =  ldml.root.findall('special/sil:external-resources/sil:font', {v:k for k,v in ldml.namespaces.items()})
-    addMissingFontData(ldml, fonts, script)
+    fontErrors = addMissingFontData(ldml, fonts, script)
+        # fontErrors is a list where item 0 is true if there is no font, item 1 is true if there is a font without a link, and item 2 contains a list of the fonts without links (or an empty list if item 1 is False)
 
     # Delete empty data from original LDML
     likelyEmptyAttrs = ['crossrefs', 'diacritics', 'footnotes', 'verseSegments', 'wordBreaks', 'wordFormingPunctuation']
@@ -1149,18 +1166,18 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         with dblObj.project.open("metadata.xml") as inf:
             ltagp = processMetadata(ldml, inf)
 
-    if fileExtCounts['lds'] == wrongLangLds and fileExtCounts['ldml'] == wrongLangLdml and collationNode is not None:
-        if wrongEspFile > 0: 
-            logging.warning("{} contains no data-driven files specifically regarding this locale, only {}, which are in Spanish. Ensure collation data is correct in past generated files".format(dblfile, wrongLangFile))    
-        if wrongEngFile > 0:
-            #logging.warning("{} contains no data-driven files specifically regarding this locale, only {}, which are in English. This shouldn't impact anything directly but should be noted".format(dblfile, wrongLangFile))    
-            pass
-    elif wrongEspFile > 0 and collationWorked == False and collationNode is not None:
-        logging.warning("{} pulls its collation data from 'Spanish.lds', ensure collation data is correct in past generated files".format(dblfile, wrongLangFile))
-        #print(filenames)   # if you want context for what the files that do work with the locale are
-    elif wrongEngFile > 0 and collationWorked == False:
-        #logging.warning("{} has some files in the correct locale and some files {} with data from English. This shouldn't impact anything directly but should be noted".format(dblfile, wrongLangFile))
-        pass
+    # if fileExtCounts['lds'] == wrongLangLds and fileExtCounts['ldml'] == wrongLangLdml and collationNode is not None:
+    #     if wrongEspFile > 0: 
+    #         logging.warning("{} contains no data-driven files specifically regarding this locale, only {}, which are in Spanish. Ensure collation data is correct in past generated files".format(dblfile, wrongLangFile))    
+    #     if wrongEngFile > 0:
+    #         #logging.warning("{} contains no data-driven files specifically regarding this locale, only {}, which are in English. This shouldn't impact anything directly but should be noted".format(dblfile, wrongLangFile))    
+    #         pass
+    # elif wrongEspFile > 0 and collationWorked == False and collationNode is not None:
+    #     logging.warning("{} pulls its collation data from 'Spanish.lds', ensure collation data is correct in past generated files".format(dblfile, wrongLangFile))
+    #     #print(filenames)   # if you want context for what the files that do work with the locale are
+    # elif wrongEngFile > 0 and collationWorked == False:
+    #     #logging.warning("{} has some files in the correct locale and some files {} with data from English. This shouldn't impact anything directly but should be noted".format(dblfile, wrongLangFile))
+    #     pass
 
     dblObj.close_project()
 
@@ -1205,9 +1222,22 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     ldml.normalise()
     ldml.save_as(ldmlOutputFilename)
     logging.info("{} successfully processed under: {}".format(dblfile, outfname))
-    if newDblFile == True:
-        newDblFiles[outfname] = dblfile     # used to identify new DBL files for manual review
-    allGeneratedFiles[dblfile] = outfname   # used to identify any duplicates that overrode each other 
+
+    # add info to the global dictionaries that will summarize anything needing manual review at the end of the import process
+    if newDblFile == True:   # used to identify new DBL files for manual review
+        if newSldrFile:
+            newDblFiles[outfname] = [dblfile, "New locale to SLDR"]    
+        else:
+            newDblFiles[outfname] = [dblfile, "New DBL file with pre-existing SLDR file"]     
+    allGeneratedFiles[dblfile] = outfname   # used to identify any duplicates that overrode each other
+    if fontErrors[0] or fontErrors[1]:
+        fontIssues[outfname] = [dblfile]
+        if fontErrors[0]:
+            fontIssues[outfname].append("Font Missing")
+            fontIssues[outfname].append("Add a default font for {} into the defaultFonts dictionary in the addMissingFontData function in dbl2ldml".format(script))
+        if fontErrors[1]:
+            fontIssues[outfname].append("Font URL Missing")
+            fontIssues[outfname].append(fontErrors[2])
 
 # end of processOneProject
 
@@ -1300,10 +1330,12 @@ if __name__ == '__main__':
             outf = sys.stdout
         ldml.serialize_xml(outf.write)
 
+    #final printouts that give summarized info about the data and potential manual fixes needed:
+
     if len(newDblFiles.items()) > 0:
-        print("New LDML files generated that aren't present in the SLDR, followed by their DBL project files of origin:")
+        print("LDML files generated from new DBL files, their respective DBL project file, and whether the locale is new to the SLDR or adding data to an existing SLDR file:")
         for n in newDblFiles.items():
-            print(n)
+            print("\t" + str(n))
     else:
         print("No new LDML files generated from this batch of DBL files")
 
@@ -1320,4 +1352,10 @@ if __name__ == '__main__':
     if len(duplicates.items()) > 0: 
         print("Multiple DBL files saved to the same path, therefore overriding one or more of them. Please address these in the 'skipfilesmap' or 'knownvarsmap' dictionaries in newdbl.py:")
         for d in duplicates.items():
-            print(d)
+            print("\t" + str(d))
+
+    if len (fontIssues.items()) > 0: 
+        print("Issues with fonts in some files listed below. Please update the dictionaries in dbl2ldml accordingly:")
+        # this references fontswap and removeMe in addMissingFontData()
+        for f in fontIssues.items():
+            print("\t" + str(f))

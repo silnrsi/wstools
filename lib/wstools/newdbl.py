@@ -430,6 +430,7 @@ def exceptions():
         # dbl files to skip over. Use key to briefly describe why it would be skipped
         "bwu_23924b4088bd455f.zip": "older, hacked font version of other bwu file",
         "kus_aa7bfc87e2d146e9.zip":"older, hacked font version of kus bwu file",
+        "mbb_314600cda3f690b2.zip":"slightly older NT version of the other mbb (which is OT). Using other one bc it's more likely to use modern orthography",
         "ptu_508d69aca227e09a.zip":"same translation as the other ptu file, just older with less books in it",
         "qvw_4682b4576f7f666f.zip":"slightly older NT version of the other qvw (which is OT). Using other one bc its files are nicer",
     }
@@ -461,6 +462,8 @@ def exceptions():
         "ctu_fc58a81f91b61c65.zip":"ctu-x-tumbala",
         "ctu_312b0d1e64e9e427.zip":"ctu-x-tila",
         "dhg_9f72b29d8a4d0cd8.zip":"dhg-x-wangurri",
+        #"daf_b7112053bc602357.zip":"dnj",       # could also be labeled as dnj-x-eastern but for now we will leave it as default dnj
+        "dnj_0300b3bffeba677f.zip":"dnj-x-western",
         "gfk_83abc8c1746443c3.zip":"gfk-x-sokarek",  #sokarek dialect rolv id 21925
         "gfk_eeaf12df03835eb2.zip":"gfk-x-hinsaal",   # hinsaal dialect, rolv id 21926
         "hus_05749a20390d4b57.zip":"hus-x-central",  #huasteco veracruz, rolv code 04681
@@ -477,7 +480,7 @@ def exceptions():
         "lwo_94f55365a50fb16d.zip": "lwo",  # file has this under ZA instead of the default SS region but there is functionally no diff
         "mam_8eb38973d944f48a.zip":"mam-x-central",
         "mam_925bffd8dc536fee.zip":"mam-x-todos",   #mam todos santos, rolv 03470
-        #"mbb":"mbb"    # there are two projects for mbb, but one is a NT and one is an OT, produced around the same time and with identical ldml & lds file contents, only dif would be exemplars from actual text
+        #"mbb_6e347966e7af61bb.zip":"mbb",   
         "nhx_d38a664622353792.zip":"nhx-x-tatahui",
         #"noa_237c316a234a0fa7.zip":"noa", # "original orthography"
         "noa_5f19908d3d3695c1.zip":"noa-x-alt", # "alternate orthography", might get new tag name
