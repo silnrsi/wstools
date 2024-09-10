@@ -500,7 +500,7 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
                     #for not-fully-expanded digraphs (doesn't handle multigraphs atm). Final "and" prevents this from catching decomposed diacritics
                     slashItems = [slashItems[0].lower()]
                 if len(slashItems) == 1 and len(slashItems[0]) < 10 and slashItems[0] not in ['ß']:        
-                    # previously, the third requirement said 'and len(slashItems[0]) > 1' but was changed to a list of exceptions since it also skipped other characters that were left uncapitalized in the simple collation
+                    # previously, the third requirement said 'and len(slashItems[0]) > 1' but was changed to a list of exceptions since it also skipped other characters that were left uncapitalized incorrectly in the simple collation
                     # specifically the exceptions should hold anything that shouldn't be expanded out to have its upper and lowercase combinations
                     s = slashItems[0]
                     slashSet = set()
@@ -528,17 +528,31 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
                     if not len(simplelist) or slashItems[0] != simplelist.pop(0):
                         simple = False
                 for s in slashItems:
-                    if currBase is not None:
-                        try:
-                            collObj[s] = CollElement(currBase, currLevel)
-                        except KeyError as errorname:
-                            #logging.debug("Abnormalities in simple collation in {} ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
-                            continue
+                    if alphabet == []:
+                        firstChar = s
+                    if s != "a":
+                        before = 0
+                        if currBase is not None:
+                            try:
+                                collObj[s] = CollElement(currBase, currLevel, before)    #not sure if they all should be before atm but not sure how to designate it yet
+                            except KeyError as errorname:
+                                #logging.debug("Abnormalities in simple collation in {} ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
+                                continue
+                    if s == "a":
+                        before = 1
+                        if currBase is not None:
+                            try: 
+                                collObj[firstChar] = CollElement(s, currLevel, before)
+                            except KeyError as errorname:
+                                #logging.debug("Abnormalities in simple collation in {} ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
+                                continue
                     currLevel = 3
                     currBase = s
                     alphabet.append(s)
                 currLevel = 2
     # print(collObj.asICU())
+    print(alphabet)
+    print(collObj)
     if charError:
         logging.debug("Unrecognized character(s) in simple collation for {}; recommend manually confirming collation is correct".format(filename))
     return (collObj, alphabet) if not simple else (None, None)
@@ -1047,7 +1061,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     if dblLdml is not None:
         collationElem = dblLdml.find('collations/collation[@type="standard"]/special/sil:simple')
         nosort = False
-    if ldml.get_draft(collationNode) >= gendraft:
+    if ldml.get_draft(collationNode) >= gendraft:   #needs to be changed to if the draft of the cr node inside of the coll node
         replaceColl = True
         if collationNode is not None and ldml.get_draft(collationNode) >= gendraft:
             collCrNode = collationNode.find('cr')
@@ -1084,12 +1098,13 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     if sortColl is not None:
         thisColl = copy.deepcopy(sortColl)
         try:
-            thisColl.minimise(alphabet)     
+            thisColl.minimise()
+            print(thisColl)     
         except Exception as errorname:
             logging.debug("Unable to MINIMIZE ldml collation for {}; let's see if collation still works: ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
             pass
         try:
-            sortSpecString = thisColl.asICU(alphabet) 
+            sortSpecString = thisColl.asICU() 
             if len(sortSpecString):
                 collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
                 crElem = ldml.addnode(collationElem, 'cr', returnnew=True)
