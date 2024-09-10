@@ -464,6 +464,7 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
     simple = True
     simplelist = list("abcdefghijklmnopqrstuvwxyz'")
     charError = False
+    monocameral = ['ß'] # characters that only have one case in most files, and shouldn't be capitalized in collation. this may be removed in favor of (ew) manual review if nothing is universal
     stowaways = ['\u200c']   # add to this list things that might sneak into stuff unexpectedly. Note that for U+200c this only works because if it was intentional, it'd be between two characters, and this section only allows for sets of 2
     if len(valueList) > 0 :
         currBase = None
@@ -499,7 +500,7 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
                 if len (slashItems) == 2 and len(slashItems[0]) > 1 and slashItems[0][1].lower() != slashItems[0][1].upper():
                     #for not-fully-expanded digraphs (doesn't handle multigraphs atm). Final "and" prevents this from catching decomposed diacritics
                     slashItems = [slashItems[0].lower()]
-                if len(slashItems) == 1 and len(slashItems[0]) < 10 and slashItems[0] not in ['ß']:        
+                if len(slashItems) == 1 and len(slashItems[0]) < 10 and slashItems[0] not in monocameral:        
                     # previously, the third requirement said 'and len(slashItems[0]) > 1' but was changed to a list of exceptions since it also skipped other characters that were left uncapitalized incorrectly in the simple collation
                     # specifically the exceptions should hold anything that shouldn't be expanded out to have its upper and lowercase combinations
                     s = slashItems[0]
