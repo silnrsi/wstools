@@ -466,92 +466,95 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
     charError = False
     monocameral = ['ß'] # characters that only have one case in most files, and shouldn't be capitalized in collation. this may be removed in favor of (ew) manual review if nothing is universal
     stowaways = ['\u200c']   # add to this list things that might sneak into stuff unexpectedly. Note that for U+200c this only works because if it was intentional, it'd be between two characters, and this section only allows for sets of 2
-    if len(valueList) > 0 :
-        currBase = None
-        for value in valueList :
-            uValue = value  # Python 2: .decode('utf-8')
-            spaceItems = uValue.split(' ')
-            if len(spaceItems) == 2 and spaceItems[0].lower() == spaceItems[1].lower():
-                # Kludge: deal with a limitation of Paratext. Since these items are case equivalent, the user probably
-                # intended x/X rather than x X and was not permitted by Paratext.
-                value = value.replace(' ', '/')
-                uValue = value  # Python 2: .decode('utf-8')
-                spaceItems = uValue.split(' ')
-            sortSpecItems = []
-            spaceSep = "&"
-            prevSlashItems = None
-            currLevel = 1
-            for spaceItem in spaceItems :
-                if spaceItem != '/':
-                    slashItems = spaceItem.split('/')
-                else:
-                    slashItems = [spaceItem]
-                # Kludge to handle something like xX which should really be x/X
-                if len(slashItems) == 1 and len(slashItems[0]) == 2 :
-                    c1 = (slashItems[0])[0:1]
-                    c2 = (slashItems[0])[1:]
-                    if c1 in stowaways:   
-                        slashItems = [c2]
-                    elif c2 in stowaways:
-                        slashItems = [c1]
-                    elif ducet.ducetCompare(ducetDict, c1, c2) == 3 : # case equivalent with x <<< X
-                        # Assume a typo where they left out the slash.
-                        slashItems = [c1, c2]
-                if len (slashItems) == 2 and len(slashItems[0]) > 1 and slashItems[0][1].lower() != slashItems[0][1].upper():
-                    #for not-fully-expanded digraphs (doesn't handle multigraphs atm). Final "and" prevents this from catching decomposed diacritics
-                    slashItems = [slashItems[0].lower()]
-                if len(slashItems) == 1 and len(slashItems[0]) < 10 and slashItems[0] not in monocameral:        
-                    # previously, the third requirement said 'and len(slashItems[0]) > 1' but was changed to a list of exceptions since it also skipped other characters that were left uncapitalized incorrectly in the simple collation
-                    # specifically the exceptions should hold anything that shouldn't be expanded out to have its upper and lowercase combinations
-                    s = slashItems[0]
-                    slashSet = set()
-                    if sum(1 if c.lower() == c else 0 for c in s) == len(s):
-                        for i in range(2 ** len(s)):
-                            v = "".join(c.upper() if (i & (1 << j)) != 0 else c for j,c in enumerate(s))
-                            if len(v) > 1 and v[0].islower() and any(b.isupper() for b in v[0:]):
-                                # cuts out the "lopsided" case combinations that unicode standard deems unnecessary (i.e. "nY", "nGy", "nGY", "ngY", etc.)
-                                #simply remove this 'if' statement and the continue if we decide later we want them in there after all
-                                continue 
-                            slashSet.add(v)
-                        slashSet.remove(s)
-                        slashItems.extend(slashSet)
-                if len(slashItems[0]) > 0:
-                    if Script.getShortName(Script.getScript(slashItems[0][0])) != script and Script.getShortName(Script.getScript(slashItems[0][0])) != 'Zyyy':
-                    # an attempt to clean up some REALLY wonky collations, specifically removing items that aren't in the proper script for the file
-                        continue
-                try:
-                    slashItems.sort(key=ducet.keyfn(ducetDict, 3))
-                    slashItems.reverse()
-                except TypeError:
-                    charError = True
-                    pass
-                if simple:
-                    if not len(simplelist) or slashItems[0] != simplelist.pop(0):
-                        simple = False
-                for s in slashItems:
-                    if alphabet == []:
-                        firstChar = s
-                    if s != "a":
-                        before = 0
-                        if currBase is not None:
-                            try:
-                                collObj[s] = CollElement(currBase, currLevel, before)    #not sure if they all should be before atm but not sure how to designate it yet
-                            except KeyError as errorname:
-                                #logging.debug("Abnormalities in simple collation in {} ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
-                                continue
-                    if s == "a":
-                        before = 1
-                        if currBase is not None:
-                            try: 
-                                collObj[firstChar] = CollElement(s, currLevel, before)
-                            except KeyError as errorname:
-                                #logging.debug("Abnormalities in simple collation in {} ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
-                                continue
-                    currLevel = 3
-                    currBase = s
-                    alphabet.append(s)
-                currLevel = 2
+    print(valueList)
+    collObj.convertSimple(valueList)
+    # if len(valueList) > 0 :
+    #     currBase = None
+    #     for value in valueList :
+    #         uValue = value  # Python 2: .decode('utf-8')
+    #         spaceItems = uValue.split(' ')
+    #         if len(spaceItems) == 2 and spaceItems[0].lower() == spaceItems[1].lower():
+    #             # Kludge: deal with a limitation of Paratext. Since these items are case equivalent, the user probably
+    #             # intended x/X rather than x X and was not permitted by Paratext.
+    #             value = value.replace(' ', '/')
+    #             uValue = value  # Python 2: .decode('utf-8')
+    #             spaceItems = uValue.split(' ')
+    #         sortSpecItems = []
+    #         spaceSep = "&"
+    #         prevSlashItems = None
+    #         currLevel = 1
+    #         for spaceItem in spaceItems :
+    #             if spaceItem != '/':
+    #                 slashItems = spaceItem.split('/')
+    #             else:
+    #                 slashItems = [spaceItem]
+    #             # Kludge to handle something like xX which should really be x/X
+    #             if len(slashItems) == 1 and len(slashItems[0]) == 2 :
+    #                 c1 = (slashItems[0])[0:1]
+    #                 c2 = (slashItems[0])[1:]
+    #                 if c1 in stowaways:   
+    #                     slashItems = [c2]
+    #                 elif c2 in stowaways:
+    #                     slashItems = [c1]
+    #                 elif ducet.ducetCompare(ducetDict, c1, c2) == 3 : # case equivalent with x <<< X
+    #                     # Assume a typo where they left out the slash.
+    #                     slashItems = [c1, c2]
+    #             if len (slashItems) == 2 and len(slashItems[0]) > 1 and slashItems[0][1].lower() != slashItems[0][1].upper():
+    #                 #for not-fully-expanded digraphs (doesn't handle multigraphs atm). Final "and" prevents this from catching decomposed diacritics
+    #                 slashItems = [slashItems[0].lower()]
+    #             if len(slashItems) == 1 and len(slashItems[0]) < 10 and slashItems[0] not in monocameral:        
+    #                 # previously, the third requirement said 'and len(slashItems[0]) > 1' but was changed to a list of exceptions since it also skipped other characters that were left uncapitalized incorrectly in the simple collation
+    #                 # specifically the exceptions should hold anything that shouldn't be expanded out to have its upper and lowercase combinations
+    #                 s = slashItems[0]
+    #                 slashSet = set()
+    #                 if sum(1 if c.lower() == c else 0 for c in s) == len(s):
+    #                     for i in range(2 ** len(s)):
+    #                         v = "".join(c.upper() if (i & (1 << j)) != 0 else c for j,c in enumerate(s))
+    #                         if len(v) > 1 and v[0].islower() and any(b.isupper() for b in v[0:]):
+    #                             # cuts out the "lopsided" case combinations that unicode standard deems unnecessary (i.e. "nY", "nGy", "nGY", "ngY", etc.)
+    #                             #simply remove this 'if' statement and the continue if we decide later we want them in there after all
+    #                             continue 
+    #                         slashSet.add(v)
+    #                     slashSet.remove(s)
+    #                     slashItems.extend(slashSet)
+    #             if len(slashItems[0]) > 0:
+    #                 if Script.getShortName(Script.getScript(slashItems[0][0])) != script and Script.getShortName(Script.getScript(slashItems[0][0])) != 'Zyyy':
+    #                 # an attempt to clean up some REALLY wonky collations, specifically removing items that aren't in the proper script for the file
+    #                     continue
+    #             try:
+    #                 slashItems.sort(key=ducet.keyfn(ducetDict, 3))
+    #                 slashItems.reverse()
+    #             except TypeError:
+    #                 charError = True
+    #                 pass
+    #             if simple:
+    #                 if not len(simplelist) or slashItems[0] != simplelist.pop(0):
+    #                     simple = False
+    #             for s in slashItems:
+    #                 if alphabet == []:
+    #                     firstChar = s
+    #                 if s != "a":
+    #                     before = 0
+    #                     if currBase is not None:
+    #                         try:
+    #                             collObj[s] = CollElement(currBase, currLevel, before)    
+    #                         except KeyError as errorname:
+    #                             #logging.debug("Abnormalities in simple collation in {} ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
+    #                             continue
+    #                 if s == "a":
+    #                     before = 1
+    #                     if currBase is not None:
+    #                         try: 
+    #                             collObj[firstChar] = CollElement(s, currLevel, before)
+    #                         except KeyError as errorname:
+    #                             #logging.debug("Abnormalities in simple collation in {} ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
+    #                             continue
+    #                 currLevel = 3
+    #                 currBase = s
+    #                 alphabet.append(s)
+    #             currLevel = 2
     # print(collObj.asICU())
+    simple = False
     print(alphabet)
     print(collObj)
     if charError:
@@ -1093,11 +1096,12 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         if vs is not None:
             vstrings = [puamap(s) for s in vs.split("\n")]
             (sortColl, alphabet) = calcSortLdsData(ldml, filename, vstrings, ducetDict, script)
-        if alphabet is not None:
+        if alphabet is not None:    #probs need tweak since alphabet isn't coming out anymore?
             se = ldml.ensure_path('collations/collation[@type="standard"]/special/sil:simple')[0]
             se.text = puamap(vs)
     if sortColl is not None:
         thisColl = copy.deepcopy(sortColl)
+        # thisColl = sortColl.copy()    #FYI FOR REFERENCE THIS DOESN'T WORK IT TURNS THE COLLATION INTO A DICT DONT DO THIS
         try:
             thisColl.minimise()
             print(thisColl)     
