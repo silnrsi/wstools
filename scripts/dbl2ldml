@@ -1100,8 +1100,8 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
             se = ldml.ensure_path('collations/collation[@type="standard"]/special/sil:simple')[0]
             se.text = puamap(vs)
     if sortColl is not None:
-        thisColl = copy.deepcopy(sortColl)
-        # thisColl = sortColl.copy()    #FYI FOR REFERENCE THIS DOESN'T WORK IT TURNS THE COLLATION INTO A DICT DONT DO THIS
+        #thisColl = copy.deepcopy(sortColl)
+        thisColl = sortColl.copy()    
         try:
             thisColl.minimise()
             print(thisColl)     
