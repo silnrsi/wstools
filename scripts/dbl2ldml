@@ -466,8 +466,34 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
     charError = False
     monocameral = ['ß'] # characters that only have one case in most files, and shouldn't be capitalized in collation. this may be removed in favor of (ew) manual review if nothing is universal
     stowaways = ['\u200c']   # add to this list things that might sneak into stuff unexpectedly. Note that for U+200c this only works because if it was intentional, it'd be between two characters, and this section only allows for sets of 2
+    #print(valueList)
+    cleanedValueList = []
     print(valueList)
-    collObj.convertSimple(valueList)
+    print(script)
+    for value in valueList:
+        newValue = ""
+        for v in value:
+            if Script.getShortName(Script.getScript(v)) != script and Script.getShortName(Script.getScript(v)) not in ['Zyyy', 'Zinh']:
+            # an attempt to clean up some REALLY wonky collations, specifically removing items that aren't in the proper script for the file
+                continue
+            else:
+                newValue += v
+        noSlash = re.sub("/", "", newValue)
+        diacriticCount = 0
+        for s in noSlash:
+            if Script.getShortName(Script.getScript(s)) == "Zinh":
+                diacriticCount += 1
+        if diacriticCount != 0 and (diacriticCount + 1) == len(noSlash):
+            print("hi")
+            noSlash = ""
+        if len(newValue) and not newValue.isspace() and not noSlash.isspace() and len(noSlash) > 0:
+            cleanedValueList.append(newValue)
+    valueList = cleanedValueList
+    print(valueList)
+    if len(cleanedValueList) > 0:
+        collObj.convertSimple(valueList)
+    else: 
+        collObj = None
     # if len(valueList) > 0 :
     #     currBase = None
     #     for value in valueList :
@@ -554,9 +580,9 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
     #                 alphabet.append(s)
     #             currLevel = 2
     # print(collObj.asICU())
-    simple = False
-    print(alphabet)
-    print(collObj)
+    simple = False  #shortcut until new way to tell if simple is devised
+    # print(alphabet)
+    # print(collObj)
     if charError:
         logging.debug("Unrecognized character(s) in simple collation for {}; recommend manually confirming collation is correct".format(filename))
     return (collObj, alphabet) if not simple else (None, None)
@@ -1073,7 +1099,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                 collationNode.remove(collCrNode)
     else:
         replaceColl = False
-
+    
     sortSpecString = ''
     prioritizeLdmlColl = True
     if 'lds' in filenames:
@@ -1084,8 +1110,8 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                     continue
             with codecs.getreader("utf-8")(dblObj.project.open(d)) as inf:
                 (sortColl, alphabet) = processLds(ldml, inf, ducetDict, replaceColl, filename, script)
-                prioritizeLdmlColl = False
             if sortColl != None:
+                prioritizeLdmlColl = False
                 # breaks the moment there is a sortColl
                 # this is to avoid situations where there is more than one viable lds file
                 # not perfect solution but will prevent any potential redundancy weirdness
@@ -1104,7 +1130,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         thisColl = sortColl.copy()    
         try:
             thisColl.minimise()
-            print(thisColl)     
+            #print(thisColl)     
         except Exception as errorname:
             logging.debug("Unable to MINIMIZE ldml collation for {}; let's see if collation still works: ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
             pass
@@ -1246,9 +1272,9 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     # add info to the global dictionaries that will summarize anything needing manual review at the end of the import process
     if newDblFile == True:   # used to identify new DBL files for manual review
         if newSldrFile:
-            newDblFiles[outfname] = [dblfile, "New locale to SLDR"]    
-        else:
-            newDblFiles[outfname] = [dblfile, "New DBL file with pre-existing SLDR file"]     
+            newDblFiles[outfname] = dblfile  
+        # else:
+        #     newDblFiles[outfname] = [dblfile, "New DBL file with pre-existing SLDR file"]     # commented out because I realized that since existing sldr files don't get a generation code they will ping this every time      
     allGeneratedFiles[dblfile] = outfname   # used to identify any duplicates that overrode each other
     if fontErrors[0] or fontErrors[1]:
         fontIssues[outfname] = [dblfile]
@@ -1353,7 +1379,7 @@ if __name__ == '__main__':
     #final printouts that give summarized info about the data and potential manual fixes needed:
 
     if len(newDblFiles.items()) > 0:
-        print("LDML files generated from new DBL files, their respective DBL project file, and whether the locale is new to the SLDR or adding data to an existing SLDR file:")
+        print("LDML files generated that don't currently exist in the SLDR, with their respective DBL project file:")
         for n in newDblFiles.items():
             print("\t" + str(n))
     else:
