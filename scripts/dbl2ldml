@@ -484,7 +484,6 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
             if Script.getShortName(Script.getScript(s)) == "Zinh":
                 diacriticCount += 1
         if diacriticCount != 0 and (diacriticCount + 1) == len(noSlash):
-            print("hi")
             noSlash = ""
         if len(newValue) and not newValue.isspace() and not noSlash.isspace() and len(noSlash) > 0:
             cleanedValueList.append(newValue)
@@ -1087,69 +1086,71 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         if len(removeTheseCollations) > 0:
             for removeMe in removeTheseCollations:
                 removeMe.parent.remove(removeMe)
-    collationElem = None
+    dblSimpleCollation = None
+    collCrNode = None
     if dblLdml is not None:
-        collationElem = dblLdml.find('collations/collation[@type="standard"]/special/sil:simple')
+        dblSimpleCollation = dblLdml.find('collations/collation[@type="standard"]/special/sil:simple')
         nosort = False
-    if ldml.get_draft(collationNode) >= gendraft:   #needs to be changed to if the draft of the cr node inside of the coll node
+    if collationNode is not None:
+        collCrNode = collationNode.find('cr')
+    if collCrNode is not None and ldml.get_draft(collCrNode) >= gendraft:
         replaceColl = True
-        if collationNode is not None and ldml.get_draft(collationNode) >= gendraft:
-            collCrNode = collationNode.find('cr')
-            if collCrNode is not None and collationNode.find('special/{{{}}}simple'.format(ldml.silns)) is not None:
-                collationNode.remove(collCrNode)
+        if collationNode.find('special/{{{}}}simple'.format(ldml.silns)) is not None:
+            collationNode.remove(collCrNode)
     else:
         replaceColl = False
     
     sortSpecString = ''
     prioritizeLdmlColl = True
-    if 'lds' in filenames:
-        for d in filenames['lds']:
-            if d == "release/Spanish.lds":
-                if fileExtCounts['lds'] > 1 or collationElem is not None:
-                    #this will still grab the spanish one if there is no other lds file or if there is no collation in the dblldml file
-                    continue
-            with codecs.getreader("utf-8")(dblObj.project.open(d)) as inf:
-                (sortColl, alphabet) = processLds(ldml, inf, ducetDict, replaceColl, filename, script)
-            if sortColl != None:
-                prioritizeLdmlColl = False
-                # breaks the moment there is a sortColl
-                # this is to avoid situations where there is more than one viable lds file
-                # not perfect solution but will prevent any potential redundancy weirdness
-                # currently only file that would use this is alp
-                break
-    if prioritizeLdmlColl and replaceColl and collationElem is not None:        
-        vs = re.sub(r"(\s*\n)+", "\n", collationElem.text)
-        if vs is not None:
-            vstrings = [puamap(s) for s in vs.split("\n")]
-            (sortColl, alphabet) = calcSortLdsData(ldml, filename, vstrings, ducetDict, script)
-        if alphabet is not None:    #probs need tweak since alphabet isn't coming out anymore?
-            se = ldml.ensure_path('collations/collation[@type="standard"]/special/sil:simple')[0]
-            se.text = puamap(vs)
-    if sortColl is not None:
-        #thisColl = copy.deepcopy(sortColl)
-        thisColl = sortColl.copy()    
-        try:
-            thisColl.minimise()
-            #print(thisColl)     
-        except Exception as errorname:
-            logging.debug("Unable to MINIMIZE ldml collation for {}; let's see if collation still works: ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
-            pass
-        try:
-            sortSpecString = thisColl.asICU() 
-            if len(sortSpecString):
-                collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
-                crElem = ldml.addnode(collationElem, 'cr', returnnew=True)
-                crElem.text = sortSpecString
-        except Exception:
-            #no debug message because this error will ALSO ping the setSortKeys error a few lines down
-            pass
-    elif not nosort:   # delete the collation
-        # only delete collation if the original was a simple sort. If hand crafted, keep it.
-        if collationNode is not None and collationNode.find('special/{{{}}}simple'.format(ldml.silns)) is not None:
-            collNode = collationNode.parent
-            collNode.remove(collationNode)
-            if not len(collNode):
-                collNode.parent.remove(collNode)
+    if replaceColl:
+        if 'lds' in filenames:
+            for d in filenames['lds']:
+                if d == "release/Spanish.lds":
+                    if fileExtCounts['lds'] > 1 or dblSimpleCollation is not None:
+                        #this will still grab the spanish one if there is no other lds file or if there is no collation in the dblldml file
+                        continue
+                with codecs.getreader("utf-8")(dblObj.project.open(d)) as inf:
+                    (sortColl, alphabet) = processLds(ldml, inf, ducetDict, replaceColl, filename, script)
+                if sortColl != None:
+                    prioritizeLdmlColl = False
+                    # breaks the moment there is a sortColl
+                    # this is to avoid situations where there is more than one viable lds file
+                    # not perfect solution but will prevent any potential redundancy weirdness
+                    # currently only file that would use this is alp
+                    break
+        if prioritizeLdmlColl and dblSimpleCollation is not None:        
+            vs = re.sub(r"(\s*\n)+", "\n", dblSimpleCollation.text)
+            if vs is not None:
+                vstrings = [puamap(s) for s in vs.split("\n")]
+                (sortColl, alphabet) = calcSortLdsData(ldml, filename, vstrings, ducetDict, script)
+            if alphabet is not None:    #probs need tweak since alphabet isn't coming out anymore?
+                se = ldml.ensure_path('collations/collation[@type="standard"]/special/sil:simple')[0]
+                se.text = puamap(vs)
+        if sortColl is not None:
+            #thisColl = copy.deepcopy(sortColl)
+            thisColl = sortColl.copy()    
+            try:
+                thisColl.minimise()
+                #print(thisColl)     
+            except Exception as errorname:
+                logging.debug("Unable to MINIMIZE ldml collation for {}; let's see if collation still works: ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
+                pass
+            try:
+                sortSpecString = thisColl.asICU() 
+                if len(sortSpecString):
+                    collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
+                    crElem = ldml.addnode(collationElem, 'cr', returnnew=True)
+                    crElem.text = sortSpecString
+            except Exception:
+                #no debug message because this error will ALSO ping the setSortKeys error a few lines down
+                pass
+        elif not nosort:   # delete the collation
+            # only delete collation if the original was a simple sort. If hand crafted, keep it.
+            if collationNode is not None and collationNode.find('special/{{{}}}simple'.format(ldml.silns)) is not None:
+                collNode = collationNode.parent
+                collNode.remove(collationNode)
+                if not len(collNode):
+                    collNode.parent.remove(collNode)
     
     collationWorked = False
     if sortColl is not None:
