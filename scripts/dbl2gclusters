@@ -27,9 +27,7 @@ import multiprocessing, logging
 
 
 def process(infname, langCode, outdir=".", update=False):
-    path = os.path.join(outdir, langCode[0])
-    if not os.path.exists(path):
-        os.makedirs(path)
+    
     logging.debug("Processing: {}".format(infname))
     dblObj = dbl.DBL(infname)
     exemplars = Exemplars()
@@ -84,6 +82,9 @@ def process(infname, langCode, outdir=".", update=False):
         if exemplartag != ltag: 
             ltag = exemplartag
     
+    path = os.path.join(outdir, str(ltag)[0])
+    if not os.path.exists(path):
+        os.makedirs(path)
     outfile = os.path.join(path, str(ltag).replace("-","_")+".tsv")
     if update and os.path.exists(outfile):
         logging.debug("Skipping: {}".format(infname))
@@ -104,6 +105,7 @@ def process(infname, langCode, outdir=".", update=False):
                 outf.write("{}\t{}\t{}\n".format(k, v, exemplars.non_casing_chars[k.upper()]))
             else:
                 outf.write("{}\t{}\t\n".format(k, v))
+    logging.info("{} successfully processed under: {}".format(dblfile, outfile))
     return True
 
 parser = argparse.ArgumentParser()

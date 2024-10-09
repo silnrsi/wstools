@@ -121,6 +121,36 @@ stowaways = {
     "Abyssinica SIL": ["Ethi"]
 }
 
+dontaddcollation = [
+    #files that have currently empty collation but DO NOT want the collation from the dbl file added to it
+    "aeu",
+    "aia",
+    "aoj-x-filifita",
+    "blz",
+    "bvd",
+    "cco",
+    "chq",
+    "chz",
+    "cso",
+    "cta",
+    "ctp",
+    "djk",
+    "dnj-x-western",
+    "emp",
+    "far",
+    "hbb",
+    "jab",
+    "kmk",
+    "kyg",
+    "kzr",
+    "msk",
+    "nsn",
+    "pao",
+    "poi",
+    "zab",
+    "zar"
+]
+
 newDblFiles = {}
 allGeneratedFiles = {}
 fontIssues = {}
@@ -233,7 +263,7 @@ class Ssf:
         if not len(pairs):
             return
         matchedElem = ldml.ensure_path('delimiters/special/sil:matched-pairs')[0]
-        if ldml.get_draft(matchedElem) < gendraft:
+        if ldml.get_draft(matchedElem) < gendraft and len(matchedElem) > 0:
             return
         for e in list(matchedElem):
             t = (e.get('open', ''), e.get('close', ''))
@@ -468,31 +498,38 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
     stowaways = ['\u200c']   # add to this list things that might sneak into stuff unexpectedly. Note that for U+200c this only works because if it was intentional, it'd be between two characters, and this section only allows for sets of 2
     #print(valueList)
     cleanedValueList = []
-    print(valueList)
-    print(script)
-    for value in valueList:
-        newValue = ""
-        for v in value:
-            if Script.getShortName(Script.getScript(v)) != script and Script.getShortName(Script.getScript(v)) not in ['Zyyy', 'Zinh']:
-            # an attempt to clean up some REALLY wonky collations, specifically removing items that aren't in the proper script for the file
-                continue
-            else:
-                newValue += v
-        noSlash = re.sub("/", "", newValue)
-        diacriticCount = 0
-        for s in noSlash:
-            if Script.getShortName(Script.getScript(s)) == "Zinh":
-                diacriticCount += 1
-        if diacriticCount != 0 and (diacriticCount + 1) == len(noSlash):
-            noSlash = ""
-        if len(newValue) and not newValue.isspace() and not noSlash.isspace() and len(noSlash) > 0:
-            cleanedValueList.append(newValue)
+    for v in valueList:
+        v2=v.replace("#","/")
+        v = v2
+        cleanedValueList.append(v)
     valueList = cleanedValueList
     print(valueList)
-    if len(cleanedValueList) > 0:
-        collObj.convertSimple(valueList)
-    else: 
-        collObj = None
+    # print(script)
+    # for value in valueList:
+    #     newValue = ""
+    #     for v in value:
+    #         if Script.getShortName(Script.getScript(v)) != script and Script.getShortName(Script.getScript(v)) not in ['Zyyy', 'Zinh']:
+    #         # an attempt to clean up some REALLY wonky collations, specifically removing items that aren't in the proper script for the file
+    #             continue
+    #         else:
+    #             newValue += v
+    #     noSlash = re.sub("/", "", newValue)
+    #     diacriticCount = 0
+    #     for s in noSlash:
+    #         if Script.getShortName(Script.getScript(s)) == "Zinh":
+    #             diacriticCount += 1
+    #     if diacriticCount != 0 and (diacriticCount + 1) == len(noSlash):
+    #         noSlash = ""
+    #     if len(newValue) and not newValue.isspace() and not noSlash.isspace() and len(noSlash) > 0:
+    #         cleanedValueList.append(newValue)
+    # valueList = cleanedValueList
+    # print(valueList)
+    # if len(cleanedValueList) > 0:
+    #     collObj.convertSimple(valueList)
+    # else: 
+    #     collObj = None
+    collObj.convertSimple(valueList)
+    print(collObj)
     # if len(valueList) > 0 :
     #     currBase = None
     #     for value in valueList :
@@ -886,9 +923,10 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
             if n.endswith("."+ext):
                 fileExtCounts[ext] += 1     # for troubleshooting purposes
                 filesAll.append(n)      # for troubleshooting purposes
-                if n in ['relase/English.lds'] or n[-8:] in ["_en.ldml"]:
+                if n in ['release/English.lds'] or n[-8:] in ["_en.ldml"]:
                     # skip english completely because it won't add anything to a collation anyway 
                     # might skip over font data tho hmm
+                    print(n)
                     wrongLangFile.append(n)
                     wrongEngFile += 1
                     if ext == 'lds':
@@ -1088,22 +1126,30 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                 removeMe.parent.remove(removeMe)
     dblSimpleCollation = None
     collCrNode = None
+    replaceColl=True
+    collSimpleNode=None
     if dblLdml is not None:
         dblSimpleCollation = dblLdml.find('collations/collation[@type="standard"]/special/sil:simple')
         nosort = False
     if collationNode is not None:
         collCrNode = collationNode.find('cr')
-    if collCrNode is not None and ldml.get_draft(collCrNode) >= gendraft:
-        replaceColl = True
-        if collationNode.find('special/{{{}}}simple'.format(ldml.silns)) is not None:
-            collationNode.remove(collCrNode)
-    else:
+        collSimpleNode = collationNode.find('special/{{{}}}simple'.format(ldml.silns))
+        if collCrNode is not None and ldml.get_draft(collCrNode) >= gendraft:
+            replaceColl = True
+            if collSimpleNode is not None:
+                if ldml.get_draft(collSimpleNode) < gendraft:
+                    dblSimpleCollation = collSimpleNode
+                collationNode.remove(collCrNode)
+        else:
+            replaceColl = False
+    if langCode in dontaddcollation:
         replaceColl = False
-    
+    print(replaceColl)
     sortSpecString = ''
     prioritizeLdmlColl = True
+    vs=None
     if replaceColl:
-        if 'lds' in filenames:
+        if 'lds' in filenames and (collSimpleNode == None or ldml.get_draft(collSimpleNode) >= gendraft):
             for d in filenames['lds']:
                 if d == "release/Spanish.lds":
                     if fileExtCounts['lds'] > 1 or dblSimpleCollation is not None:
@@ -1117,30 +1163,63 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                     # this is to avoid situations where there is more than one viable lds file
                     # not perfect solution but will prevent any potential redundancy weirdness
                     # currently only file that would use this is alp
+                    if dblSimpleCollation is None:
+                        vs = re.sub(r"(\s*\n)+", "\n", sortColl.asSimple())
                     break
-        if prioritizeLdmlColl and dblSimpleCollation is not None:        
+        if dblSimpleCollation is not None:
             vs = re.sub(r"(\s*\n)+", "\n", dblSimpleCollation.text)
-            if vs is not None:
+            if prioritizeLdmlColl: 
                 vstrings = [puamap(s) for s in vs.split("\n")]
                 (sortColl, alphabet) = calcSortLdsData(ldml, filename, vstrings, ducetDict, script)
-            if alphabet is not None:    #probs need tweak since alphabet isn't coming out anymore?
+        if vs is not None:
+            if len(vs) > 0:
                 se = ldml.ensure_path('collations/collation[@type="standard"]/special/sil:simple')[0]
                 se.text = puamap(vs)
-        if sortColl is not None:
+        if sortColl is not None and len(sortColl) > 0:
             #thisColl = copy.deepcopy(sortColl)
             thisColl = sortColl.copy()    
             try:
                 thisColl.minimise()
-                #print(thisColl)     
+                # print(thisColl)     
             except Exception as errorname:
                 logging.debug("Unable to MINIMIZE ldml collation for {}; let's see if collation still works: ".format(filename) + str(type(errorname).__name__) + " - " + str(errorname))
                 pass
             try:
                 sortSpecString = thisColl.asICU() 
+                # this next bit until the end of the for loop is meant to bandaid-fix the fact that asICU escapes things using backslash instead of the single quotation marks that is needed for collation
+                fixEscapeString = ""
+                index = 0
+                hold = False
+                for s in sortSpecString:
+                    if s == "\\" and index > 0:
+                        if sortSpecString[index-1] == " ":
+                            s = "'"
+                            hold = True
+                    if s == "\n" and hold:
+                        s = "'\n"
+                        hold = False
+                    elif s == " " and hold:
+                        s = "' "
+                        hold = False
+                    if (index+1) == len(sortSpecString) and hold:
+                        s += "'"
+                    fixEscapeString += s
+                    index += 1
+                sortSpecString = fixEscapeString
                 if len(sortSpecString):
                     collationElem = ldml.ensure_path('collations/collation[@type="standard"]')[0]
                     crElem = ldml.addnode(collationElem, 'cr', returnnew=True)
                     crElem.text = sortSpecString
+                elif dblSimpleCollation != collSimpleNode:
+                    print("ahhh")
+                    print(collationNode)
+                    removeSimple = ldml.find('collations/collation[@type="standard"]')
+                    print(removeSimple)
+                    collNode = removeSimple.parent
+                    print(collNode)
+                    collNode.remove(removeSimple)
+                    if not len(collNode):
+                        collNode.parent.remove(collNode)
             except Exception:
                 #no debug message because this error will ALSO ping the setSortKeys error a few lines down
                 pass
