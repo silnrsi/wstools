@@ -147,8 +147,13 @@ dontaddcollation = [
     "nsn",
     "pao",
     "poi",
+    "stb",
+    "sxb",
+    "tos",
     "zab",
-    "zar"
+    "zad",
+    "zar",
+    "zyp"
 ]
 
 newDblFiles = {}
@@ -503,7 +508,7 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
         v = v2
         cleanedValueList.append(v)
     valueList = cleanedValueList
-    print(valueList)
+    # print(valueList)
     # print(script)
     # for value in valueList:
     #     newValue = ""
@@ -529,7 +534,7 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
     # else: 
     #     collObj = None
     collObj.convertSimple(valueList)
-    print(collObj)
+    # print(collObj)
     # if len(valueList) > 0 :
     #     currBase = None
     #     for value in valueList :
@@ -926,7 +931,6 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                 if n in ['release/English.lds'] or n[-8:] in ["_en.ldml"]:
                     # skip english completely because it won't add anything to a collation anyway 
                     # might skip over font data tho hmm
-                    print(n)
                     wrongLangFile.append(n)
                     wrongEngFile += 1
                     if ext == 'lds':
@@ -1144,7 +1148,6 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
             replaceColl = False
     if langCode in dontaddcollation:
         replaceColl = False
-    print(replaceColl)
     sortSpecString = ''
     prioritizeLdmlColl = True
     vs=None
@@ -1192,7 +1195,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                 hold = False
                 for s in sortSpecString:
                     if s == "\\" and index > 0:
-                        if sortSpecString[index-1] == " ":
+                        if sortSpecString[index-1] == " " or sortSpecString[index-1] == "&":
                             s = "'"
                             hold = True
                     if s == "\n" and hold:
@@ -1211,12 +1214,8 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                     crElem = ldml.addnode(collationElem, 'cr', returnnew=True)
                     crElem.text = sortSpecString
                 elif dblSimpleCollation != collSimpleNode:
-                    print("ahhh")
-                    print(collationNode)
                     removeSimple = ldml.find('collations/collation[@type="standard"]')
-                    print(removeSimple)
                     collNode = removeSimple.parent
-                    print(collNode)
                     collNode.remove(removeSimple)
                     if not len(collNode):
                         collNode.parent.remove(collNode)

@@ -459,6 +459,7 @@ def exceptions():
         "cak_c4fe9e2ee5c9478b.zip":"cak-x-subcm",   #aka surcentral. pretty sure that's subcm (4023 chimaltenago)
         "cak_edc84e947196a225.zip":"cak-x-subso",   #aka western. pretty sure that's subso (4024 solola)
         "cbs_bfe3d27ca02d8188.zip":"cbs-BR",
+        # should the cmo file go straight to cmo instead of cmo-KH? question for another day, would require consolidating the two files in cldr
         "ctu_fc58a81f91b61c65.zip":"ctu-x-tumbala",
         "ctu_312b0d1e64e9e427.zip":"ctu-x-tila",
         "dhg_9f72b29d8a4d0cd8.zip":"dhg-x-wangurri",

@@ -82,6 +82,10 @@ def process(infname, langCode, outdir=".", update=False):
         if exemplartag != ltag: 
             ltag = exemplartag
     
+    # currently the missing method of getting an accurate langtag that the dbl import process uses but is absent here
+    # is the method of looking at what the ldml file calls it
+    # not sure how to deal with that yet
+
     path = os.path.join(outdir, str(ltag)[0])
     if not os.path.exists(path):
         os.makedirs(path)
