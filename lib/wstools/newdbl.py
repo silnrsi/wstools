@@ -433,6 +433,7 @@ def exceptions():
         "mbb_314600cda3f690b2.zip":"slightly older NT version of the other mbb (which is OT). Using other one bc it's more likely to use modern orthography",
         "ptu_508d69aca227e09a.zip":"same translation as the other ptu file, just older with less books in it",
         "qvw_4682b4576f7f666f.zip":"slightly older NT version of the other qvw (which is OT). Using other one bc its files are nicer",
+        "okv_804cc342b7cc775a.zip":"technically okv-x-ehija, but the differences between it and okv-x-etija don't pertain to the sldr files. If that changes, remove this from 'skipfilesmap' in newdbl.py and uncomment out both okv files in 'knownvarsmap'"
     }
 
     knownvarsmap= {
@@ -445,7 +446,7 @@ def exceptions():
         "aoj_9b2f4522c94167b3.zip":"aoj-x-filifita",
         "aoj_e1b773c63b9b23de.zip":"aoj-x-balif",
         "ape_0e5e9ab5304a71df.zip":"ape-x-coastal",
-        "ape_9adf28ef3e43803b.zip":"ape-x-mountain",
+        # "ape_9adf28ef3e43803b.zip":"ape-x-mountain",  # while this is the case, there is no orthographic difference so no need to do it, let it run on normal ape
         "avu_25b22b576c35c0a2.zip":"avu",   # file has this under SD instead of the default SS region but there is functionally no diff
         "buu_9dfa86fef49a2749.zip":"buu-x-koya",    #Budu-Koya, rolv code 19443 
         "buu_7f38828c4ca2f6ec.zip":"buu-x-ineta",         #Budu-Nita
@@ -467,14 +468,14 @@ def exceptions():
         "dnj_0300b3bffeba677f.zip":"dnj-x-western",
         "gfk_83abc8c1746443c3.zip":"gfk-x-sokarek",  #sokarek dialect rolv id 21925
         "gfk_eeaf12df03835eb2.zip":"gfk-x-hinsaal",   # hinsaal dialect, rolv id 21926
-        "hus_05749a20390d4b57.zip":"hus-x-central",  #huasteco veracruz, rolv code 04681
+        # "hus_05749a20390d4b57.zip":"hus-x-central",  #huasteco veracruz, rolv code 04681. currently writes onto normal hus in sldr but uncomment if that ever changes
         "hus_4debd996d0f50e67.zip":"hus-x-potosino",   #Huastec San Luis Potosi
         "ixl_2bac6224ab47bab8.zip":"ixl-x-cotzal",
         "ixl_2dad83033884a3ad.zip":"ixl-x-nebaj",
         "kmh_3de6c420cb00e851.zip":"kmh-x-minimib",   
             #NOT IN LANGTAGS OR ROLV? Very closely related to the Kopon (kpw) language which does have a rolv Minimib dialect (21176)
         "knv_cd88ca9cb083c101.zip":"knv-x-flyriver",
-        "knv_74ea3f410729934b.zip":"knv-x-aramia",
+        # "knv_74ea3f410729934b.zip":"knv-x-aramia",  # currently writes onto normal knv in sldr but uncomment if that ever changes
         "kqe_7876fc7be8a234f1.zip":"kqe-x-east",
         "kqe_9396bdab17afda48.zip":"kqe-x-west",
         #"kus_333a4a06309f5935.zip":"kus",   
@@ -485,8 +486,8 @@ def exceptions():
         "nhx_d38a664622353792.zip":"nhx-x-tatahui",
         #"noa_237c316a234a0fa7.zip":"noa", # "original orthography"
         "noa_5f19908d3d3695c1.zip":"noa-x-alt", # "alternate orthography", might get new tag name
-        "okv_78b96b766ccc69b2.zip":"okv-x-etija", #Etija dialect, rolv code 15341
-        "okv_804cc342b7cc775a.zip":"okv-x-ehija", #Ehija dialect, rolv code 15340
+        # "okv_78b96b766ccc69b2.zip":"okv-x-etija", #Etija dialect, rolv code 15341. the two are functionally identical for sldr purposes tho
+        # "okv_804cc342b7cc775a.zip":"okv-x-ehija", #Ehija dialect, rolv code 15340. the two are functionally identical for sldr purposes tho
         #"ptu_e147c0d35d7dd600.zip":"ptu",
         "quc_dd5c5f7428bdbc7d.zip":"quc-x-trad",     #"traditional orthography"
         #"qvw_2b2b53c89ed39448.zip":"qvw",   

@@ -508,6 +508,8 @@ def calcSortLdsData(ldml, filename, valueList, ducetDict, script) :
         v = v2
         cleanedValueList.append(v)
     valueList = cleanedValueList
+    # print(cleanedValueList)
+    # print(cleanedValueList)
     # print(valueList)
     # print(script)
     # for value in valueList:
