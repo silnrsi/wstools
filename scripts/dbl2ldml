@@ -1317,10 +1317,11 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
         versionNode = ldml.ensure_path('identity/version', draft="unconfirmed")[0]
         versionNode.set('number', genTimeValue)
         ldml.ensure_path('identity/language[@type="{}"]'.format(ltag.lang), draft="unconfirmed")
+        # there may be a bug in here that doesn't add one of these fields where it should if the tag gets changed later in the process OR adds a tag that is redundant. not sure. 
         if ltag.script is not None:
             ldml.ensure_path('identity/script[@type="{}"]'.format(ltag.script), draft="unconfirmed")
         if ltag.region is not None:
-            ldml.ensure_path('identity/ldmlterritory[@type="{}"]'.format(ltag.region), draft="unconfirmed")
+            ldml.ensure_path('identity/territory[@type="{}"]'.format(ltag.region), draft="unconfirmed")
         if ltag.vars or ltag.ns:
             bits = []
             if ltag.vars is not None:

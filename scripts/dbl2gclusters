@@ -24,6 +24,7 @@ import multiprocessing, logging
 
 (skipfilesmap, knownvarsmap) = newdbl.exceptions()
 
+allGeneratedFiles = {}
 
 
 def process(infname, langCode, outdir=".", update=False):
@@ -98,6 +99,8 @@ def process(infname, langCode, outdir=".", update=False):
     if clusters == {}:
         logging.debug("Unable to get gclusters for {}".format(infname))
 
+    allGeneratedFiles[dblfile] = outfile   # used to identify any duplicates that overrode each other
+
     with open(outfile, "w") as outf:
         outf.write("cluster\tcount\tcasing patterns\n")
         for k, v in sorted(clusters.items(), key=lambda a: (-a[1], a[0])):
@@ -151,3 +154,16 @@ else:
         p = multiprocessing.Pool(processes=args.jobs)
         list(p.map_async(doit, allfiles).get())
         
+duplicates = {}
+uniques = []
+for g in allGeneratedFiles.keys():
+    outputFile = allGeneratedFiles[g]
+    if outputFile not in uniques:
+        uniques.append(outputFile)
+    else:
+        for k in [k for k,v in allGeneratedFiles.items() if v == outputFile]:
+            duplicates[k] = allGeneratedFiles[k]
+if len(duplicates.items()) > 0: 
+    print("Multiple DBL files saved to the same path, therefore overriding one or more of them. Still working on how to address this so be aware:")
+    for d in duplicates.items():
+        print("\t" + str(d))
