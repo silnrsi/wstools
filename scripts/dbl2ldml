@@ -158,6 +158,7 @@ dontaddcollation = [
 
 newDblFiles = {}
 allGeneratedFiles = {}
+runFiles = []
 fontIssues = {}
 
 class Puamap:
@@ -914,6 +915,8 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     s = str(filename).find(langCode)
     dblfile = str(filename)[s:]
 
+    runFiles.append(dblfile)
+    
     newDblFile = False
     newSldrFile = False
 
@@ -1407,6 +1410,38 @@ if __name__ == '__main__':
             logging.error(bt)
             if args.debug:
                 raise e
+        if len(runFiles) == len(jobs):
+            # this means the file that was just processed is the last on the list
+            # therefore, time to spit out any summaries of the data that you want to have
+            # this has to be here instead of at the end of the code bc if multiprocessing is used then it will not see the global variables
+            if len(newDblFiles.items()) > 0:
+                print("LDML files generated that don't currently exist in the SLDR, with their respective DBL project file:")
+                for n in newDblFiles.items():
+                    print("\t" + str(n))
+            else:
+                print("No new LDML files generated from this batch of DBL files")
+
+            duplicates = {}
+            uniques = []
+            for g in allGeneratedFiles.keys():
+                outputFile = allGeneratedFiles[g]
+                if outputFile not in uniques:
+                    uniques.append(outputFile)
+                else:
+                    for k in [k for k,v in allGeneratedFiles.items() if v == outputFile]:
+                        duplicates[k] = allGeneratedFiles[k]
+            
+            if len(duplicates.items()) > 0: 
+                print("Multiple DBL files saved to the same path, therefore overriding one or more of them. Please address these in the 'skipfilesmap' or 'knownvarsmap' dictionaries in newdbl.py:")
+                for d in duplicates.items():
+                    print("\t" + str(d))
+
+            if len (fontIssues.items()) > 0: 
+                print("Issues with fonts in some files listed below. Please update the dictionaries in dbl2ldml accordingly:")
+                # this references fontswap and removeMe in addMissingFontData()
+                for f in fontIssues.items():
+                    print("\t" + str(f))
+            print("ALL DONE!")
         return True
 
     if args.jobs == 1:
@@ -1459,31 +1494,32 @@ if __name__ == '__main__':
         ldml.serialize_xml(outf.write)
 
     #final printouts that give summarized info about the data and potential manual fixes needed:
+    # this data will all be incorrect if jobs does not equal 1 because multiprocessing async thingy doesn't preserve global variables. 
 
-    if len(newDblFiles.items()) > 0:
-        print("LDML files generated that don't currently exist in the SLDR, with their respective DBL project file:")
-        for n in newDblFiles.items():
-            print("\t" + str(n))
-    else:
-        print("No new LDML files generated from this batch of DBL files")
+    # if len(newDblFiles.items()) > 0:
+    #     print("LDML files generated that don't currently exist in the SLDR, with their respective DBL project file:")
+    #     for n in newDblFiles.items():
+    #         print("\t" + str(n))
+    # else:
+    #     print("No new LDML files generated from this batch of DBL files")
 
-    duplicates = {}
-    uniques = []
-    for g in allGeneratedFiles.keys():
-        outputFile = allGeneratedFiles[g]
-        if outputFile not in uniques:
-            uniques.append(outputFile)
-        else:
-            for k in [k for k,v in allGeneratedFiles.items() if v == outputFile]:
-                duplicates[k] = allGeneratedFiles[k]
+    # duplicates = {}
+    # uniques = []
+    # for g in allGeneratedFiles.keys():
+    #     outputFile = allGeneratedFiles[g]
+    #     if outputFile not in uniques:
+    #         uniques.append(outputFile)
+    #     else:
+    #         for k in [k for k,v in allGeneratedFiles.items() if v == outputFile]:
+    #             duplicates[k] = allGeneratedFiles[k]
     
-    if len(duplicates.items()) > 0: 
-        print("Multiple DBL files saved to the same path, therefore overriding one or more of them. Please address these in the 'skipfilesmap' or 'knownvarsmap' dictionaries in newdbl.py:")
-        for d in duplicates.items():
-            print("\t" + str(d))
+    # if len(duplicates.items()) > 0: 
+    #     print("Multiple DBL files saved to the same path, therefore overriding one or more of them. Please address these in the 'skipfilesmap' or 'knownvarsmap' dictionaries in newdbl.py:")
+    #     for d in duplicates.items():
+    #         print("\t" + str(d))
 
-    if len (fontIssues.items()) > 0: 
-        print("Issues with fonts in some files listed below. Please update the dictionaries in dbl2ldml accordingly:")
-        # this references fontswap and removeMe in addMissingFontData()
-        for f in fontIssues.items():
-            print("\t" + str(f))
+    # if len (fontIssues.items()) > 0: 
+    #     print("Issues with fonts in some files listed below. Please update the dictionaries in dbl2ldml accordingly:")
+    #     # this references fontswap and removeMe in addMissingFontData()
+    #     for f in fontIssues.items():
+    #         print("\t" + str(f))

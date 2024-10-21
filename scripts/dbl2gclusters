@@ -25,7 +25,7 @@ import multiprocessing, logging
 (skipfilesmap, knownvarsmap) = newdbl.exceptions()
 
 allGeneratedFiles = {}
-
+runFiles = []
 
 def process(infname, langCode, outdir=".", update=False):
     
@@ -39,12 +39,14 @@ def process(infname, langCode, outdir=".", update=False):
     except Exception as e:
         pass
     dblObj.close_project()
-    
+
     knownVariant = False
 
     s = str(infname).rfind(langCode)
     dblfile = str(infname)[s:]
 
+    runFiles.append(dblfile)
+    
     if dblfile in skipfilesmap:
         reason = skipfilesmap[dblfile]
         logging.info("Skipping {}: {}".format(dblfile, reason))
@@ -98,6 +100,7 @@ def process(infname, langCode, outdir=".", update=False):
     clusters = {k.base+k.trailers: v for k, v in exemplars.raw_clusters.items()}
     if clusters == {}:
         logging.debug("Unable to get gclusters for {}".format(infname))
+        #currently still generates a file, just is empty.
 
     allGeneratedFiles[dblfile] = outfile   # used to identify any duplicates that overrode each other
 
@@ -136,6 +139,23 @@ if args.dbl:
 
 def doit(a):
     process(a[0], a[1], outdir=args.outdir, update=args.update)
+    if len(runFiles) == len(allfiles):
+        #this means it's the last file in the list, so we can print out any data summaries using global variables
+        # this isn't at the bottom like it is in dbl2ldml because the map_async for if jobs is not 100 ignores the global variable
+        duplicates = {}
+        uniques = []
+        for g in allGeneratedFiles.keys():
+            outputFile = allGeneratedFiles[g]
+            if outputFile not in uniques:
+                uniques.append(outputFile)
+            else:
+                for k in [k for k,v in allGeneratedFiles.items() if v == outputFile]:
+                    duplicates[k] = allGeneratedFiles[k]
+        if len(duplicates.items()) > 0: 
+            print("Multiple DBL files saved to the same path, therefore overriding one or more of them. Still working on how to address this so be aware:")
+            for d in duplicates.items():
+                print("\t" + str(d))
+        print("ALL DONE!")
     return True
 
 if args.listlangs:
@@ -154,16 +174,17 @@ else:
         p = multiprocessing.Pool(processes=args.jobs)
         list(p.map_async(doit, allfiles).get())
         
-duplicates = {}
-uniques = []
-for g in allGeneratedFiles.keys():
-    outputFile = allGeneratedFiles[g]
-    if outputFile not in uniques:
-        uniques.append(outputFile)
-    else:
-        for k in [k for k,v in allGeneratedFiles.items() if v == outputFile]:
-            duplicates[k] = allGeneratedFiles[k]
-if len(duplicates.items()) > 0: 
-    print("Multiple DBL files saved to the same path, therefore overriding one or more of them. Still working on how to address this so be aware:")
-    for d in duplicates.items():
-        print("\t" + str(d))
+# duplicates = {}
+# uniques = []
+# print(allGeneratedFiles)
+# for g in allGeneratedFiles.keys():
+#     outputFile = allGeneratedFiles[g]
+#     if outputFile not in uniques:
+#         uniques.append(outputFile)
+#     else:
+#         for k in [k for k,v in allGeneratedFiles.items() if v == outputFile]:
+#             duplicates[k] = allGeneratedFiles[k]
+# if len(duplicates.items()) > 0: 
+#     print("Multiple DBL files saved to the same path, therefore overriding one or more of them. Still working on how to address this so be aware:")
+#     for d in duplicates.items():
+#         print("\t" + str(d))
