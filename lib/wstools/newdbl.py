@@ -180,7 +180,7 @@ class DBLReader(object):
             outEntries = {}
         entries, httpResult = self.getjson(dblurl+'/api/entries') # + ('' if owned else '/visible_entries'))
         if httpResult != 200:
-            logging.error("ERROR in obtaining DBL entries; HTTP response code = ", httpResult)
+            logging.error("ERROR in obtaining DBL entries; HTTP response code = " + str(httpResult))
             return
         if mapfile is not None:
             with open(mapfile) as inf:
@@ -433,7 +433,9 @@ def exceptions():
         "mbb_314600cda3f690b2.zip":"slightly older NT version of the other mbb (which is OT). Using other one bc it's more likely to use modern orthography",
         "ptu_508d69aca227e09a.zip":"same translation as the other ptu file, just older with less books in it",
         "qvw_4682b4576f7f666f.zip":"slightly older NT version of the other qvw (which is OT). Using other one bc its files are nicer",
-        "okv_804cc342b7cc775a.zip":"technically okv-x-ehija, but the differences between it and okv-x-etija don't pertain to the sldr files. If that changes, remove this from 'skipfilesmap' in newdbl.py and uncomment out both okv files in 'knownvarsmap'"
+        "okv_804cc342b7cc775a.zip":"technically okv-x-ehija, but the differences between it and okv-x-etija don't pertain to the sldr files. If that changes, remove this from 'skipfilesmap' in newdbl.py and uncomment out both okv files in 'knownvarsmap'",
+        "arb_40760f928c8c3527.zip":"this is a 'chanted' version and the other arabic one is a full NT, so has more data. if it turns out chanted should have a separate tag, move this",
+        "bod_c2336852a0352c28.zip":"distinguished from the other bod bible as 'low literacy NT+', while the other text is newer and is a full bible labeled as 'modern literacy'. For lack of other distinguisher, skipping this one"
     }
 
     knownvarsmap= {
@@ -491,6 +493,8 @@ def exceptions():
         #"ptu_e147c0d35d7dd600.zip":"ptu",
         "quc_dd5c5f7428bdbc7d.zip":"quc-x-trad",     #"traditional orthography"
         #"qvw_2b2b53c89ed39448.zip":"qvw",   
+        "rwo_c3d874881bb6965e.zip":"rwo-x-karo",
+        "snp_60e5971313e0723a.zip":"snp-x-lambau",
         "tuc_79eafcc60f337d8c.zip":"tuc-x-oov",
         "tuc_00f8a1a8be6d4cbd.zip":"tuc-x-tuam",
         "tuo_9e63cdeff066ea65.zip":"tuo-CO",
@@ -498,6 +502,8 @@ def exceptions():
         "tzo_89a655d8cecbd0b5.zip":"tzo-x-zinacntn",
         "tzo_d3c1a6a5b1a6d906.zip":"tzo-x-huixtan",
         "tzo_d2852d0e5004eee9.zip":"tzo-x-sanandre",
+        "ubu_25cf9871f1479b77.zip":"ubu-x-nopenge",
+        "ubu_76f5e924bec27163.zip":"ubu-x-kala",
         "wed_017a5237548af856.zip":"wed-x-topura",
         "xbi_1d2500c097ee17fc.zip":"xbi-x-western",   #Kombio Wampukuamp, aka west-central kombio (rolv 12184)
         "xbi_6143d8c5bae3a41f.zip":"xbi-x-south",   #Kombio Yanimoi, aka south kombio (rolv 12183)
