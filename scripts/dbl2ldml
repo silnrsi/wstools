@@ -42,20 +42,28 @@ def gettext(e):
 
 fontswap = {
         # list items in order are [font to replace it with, features, language setting]
+        #IMPORTANT: If you want to preserve the original font name as a separate, linkless entry in the file, you only need to add it here. 
+        #HOWEVER: If you want the original font to be removed from the file, you also need to add an entry in the 'removeMe' dictionary under addMissingFontData()
         "Charis SIL AmArea": ["Charis SIL", "ss04=1 cv43=2 cv68=1 cv77=1 cv90=1", None],
         "Charis SIL Compact": ["Charis SIL", None, None],      #typetuned to have Tight spacing
         "Charis SIL Afr": ["Charis SIL", "cv44=1, cv46=1, cv49=1, cv77=1, ss04=1", None],
         "Charis SIL Mali": ["Charis SIL", "cv43=0 cv44=1 cv46=1", None],
         "Charis SIL Literacy": ["Charis SIL", "ss01=1", None],
         "Charis SIL Charis SIL Literacy": ["Charis SIL", "ss01=1", None],
+        "Charis SIL Lit": ["Charis SIL", "ss01=1", None],
         "Charis SIL Ghana": ["Charis SIL", "cv43=0 cv46=1", None],
         "Calibri" : ["Charis SIL", None, None],
-        "Arial" :  ["Charis SIL", None, None],
-        "Arial Unicode MS":  ["Charis SIL", None, None],
-        "Times New Roman" :  ["Charis SIL", None, None],
+        "Arial" : ["Charis SIL", None, None],
+        "Arial Narrow" : ["Charis SIL", None, None],
+        "Arial Rounded MT Bold" : ["Charis SIL", None, None],
+        "Arial Unicode MS": ["Charis SIL", None, None],
+        "Andika New Basic": ["Andika", None, None],
+        "Andika SEB": ["Andika", "cv49=1 cv07=1", None],
+        "Comic Sans MS": ["Charis SIL", None, None],
+        "Times New Roman" : ["Charis SIL", None, None],
         "Mangal":  ["Annapurna SIL", None, None],
-        "Maiandra GD":  ["Charis SIL", None, None],
-        "Cambria":  ["Charis SIL", None, None],
+        "Maiandra GD": ["Charis SIL", None, None],
+        "Cambria": ["Charis SIL", None, None],
         "Verdana": ["Charis SIL", None, None],
         "Courier New": ["Charis SIL", None, None],
         "Daasun~1 Daasun~1 SILCharis": ["Charis SIL", None, None],
@@ -99,12 +107,20 @@ fontswap = {
         "Californian FB": ["Charis SIL", None, None],
         "Annapurna SIL Syuba": ["Annapurna SIL", None, None],
         "Annapurna SIL Nepal": ["Annapurna SIL", "ss01=1 ss08=1 ss09=1 ss10=1", None],   # adds the features to adjacent Annapurna SIL files but also keeps the link to the specific nepal one 
-        "Book Antiqua": ["Charis SIL", None, None]
+        "Book Antiqua": ["Charis SIL", None, None],
+        "Sakkal Majalla": ["Scheherazade New", None, None],
+        "Lateef Haz Kaz Low": ["Lateef","cv62=1",None],
+        "Lateef Hazaragi": ["Lateef","cv62=1",None],
+        "Kristen ITC":["Charis SIL", None, None],
+        "Kruti Dev 016":["Annapurna SIL", None, None],
+        "Microsoft Himalaya":["Noto Serif Tibetan", None, None],
+        "Tibetan Machine Uni":["Noto Serif Tibetan", None, None],
+        "Amdo Classic 1":["Noto Serif Tibetan", None, None],
+        "XenoType TB Drepung":["Noto Serif Tibetan", None, None]
     }
 
 fontExceptions = {
-    # for cases where there's no way to hard-code this change 
-    # but you don't want to double check to make sure it didn't replace it every time you merge in new data
+    # for cases where there's no way to hard-code this change, but you don't want to double check to make sure it didn't replace it every time you merge in new data
     "emp_3c8ed09b9e38c6f3.zip" : "Charis SIL",
     "ndz_b5472a584e2d47b2.zip": "Charis SIL"
 }
@@ -711,9 +727,13 @@ def addMissingFontData(ldml, fonts, script):
         # if it's one of the rare None ones where there is no good swap so just delete it only goes in removeMe
         # otherwise everything in both
         # Update this every time there is a new DBL import by checking for fonts without links.
+        #idea on how to merge the two dicts: add another item in the list in the other dict to indicate if keep old thingy or not, put none in font replace field (item 0) if skip entirely
         "Calibri" : "Charis SIL",
         "Arial" : "Charis SIL",
+        "Arial Narrow" : "Charis SIL",
+        "Arial Rounded MT Bold" : "Charis SIL",
         "Arial Unicode MS": "Charis SIL",
+        "Comic Sans MS" : "Charis SIL",
         "Times New Roman" : "Charis SIL",
         "Mangal": "Annapurna SIL",
         "Maiandra GD": "Charis SIL",
@@ -767,7 +787,16 @@ def addMissingFontData(ldml, fonts, script):
         "Annapurna SIL Syuba": "Annapurna SIL",
         "Tunga": "Badami",
         "Kalinga": "Japa Sans Oriya",
-        "Book Antiqua": "Charis SIL"
+        "Book Antiqua": "Charis SIL",
+        "Sakkal Majalla":"Scheherazade New",
+        "Lateef Haz Kas Low": "Lateef",
+        "Lateef Hazaragi":"Lateef",
+        "Kristen ITC":"Charis SIL",
+        "Kruti Dev 016":"Annapurna SIL",
+        "Microsoft Himalaya":"Noto Serif Tibetan",
+        "Tibetan Machine Uni":"Noto Serif Tibetan",
+        "Amdo Classic 1":"Noto Serif Tibetan",
+        "XenoType TB Drepung":"Noto Serif Tibetan"
     }
 
     automaticDefaults = [
@@ -1057,6 +1086,8 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                     ldmllangcode = ldmllang.get('type')
                     if ldmlscript != None: 
                         ldmllangcode = ldmllangcode + "-" + ldmlscript.get('type')
+                    elif script != None:
+                        ldmllangcode = ldmllangcode + "-" + script  #for cases where the tag would change if the script isn't included and the ldml forgot to add it, it pulls in the script we already identified from the translation body text
                     if ldmlterritory != None: 
                         ldmllangcode = ldmllangcode + "-" + ldmlterritory.get('type')
                     if ldmlvar != None:

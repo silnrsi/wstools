@@ -435,7 +435,10 @@ def exceptions():
         "qvw_4682b4576f7f666f.zip":"slightly older NT version of the other qvw (which is OT). Using other one bc its files are nicer",
         "okv_804cc342b7cc775a.zip":"technically okv-x-ehija, but the differences between it and okv-x-etija don't pertain to the sldr files. If that changes, remove this from 'skipfilesmap' in newdbl.py and uncomment out both okv files in 'knownvarsmap'",
         "arb_40760f928c8c3527.zip":"this is a 'chanted' version and the other arabic one is a full NT, so has more data. if it turns out chanted should have a separate tag, move this",
-        "bod_c2336852a0352c28.zip":"distinguished from the other bod bible as 'low literacy NT+', while the other text is newer and is a full bible labeled as 'modern literacy'. For lack of other distinguisher, skipping this one"
+        "bod_c2336852a0352c28.zip":"distinguished from the other bod bible as 'low literacy NT+', while the other text is newer and is a full bible labeled as 'modern literacy'. For lack of other distinguisher, skipping this one",
+        "cdm_4c2024fa512556be.zip":"1993 translation for cdm, while the other one is newer.",
+        "gnw_db8cc8a6919c992e.zip":"older translation from 1984, with less books than the other version",
+        "jra_f9062898501978bb.zip":"portions, other translation has more text"
     }
 
     knownvarsmap= {
