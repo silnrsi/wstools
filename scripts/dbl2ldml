@@ -706,10 +706,14 @@ def addMissingFontData(ldml, fonts, script):
         "Kay Pho Du": "kayphodu",
         "Surma": "surma",
         "Tagmukay": "tagmukay",
-        "Japa Sans Oriya": "japasansoriya"
+        "Japa Sans Oriya": "japasansoriya",
+        "Sarabun":"sarabun",
+        "Saysettha":"saysettha",
+        "Jomolhari":"jomolhari"
     }
 
     notLffUrls = {
+        #note: these links seem to lead to a read-only version of the noto fonts repo. in future, may shift so that these instead direct to lff versions of these links
         "Noto Sans Telugu": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansTelugu/NotoSansTelugu-Regular.ttf",
         "Noto Sans": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf",
         "Noto Serif Tibetan": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSerifTibetan/NotoSerifTibetan-Regular.ttf",
@@ -1079,6 +1083,10 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                 dblLdml = tempDblLdml
                 ldmllang = templdmllang
                 ldmlscript = dblLdml.root.find('.//identity/script')
+                if ldmlscript != None and script != None and ldmlscript.get('type') != script:
+                    #the script listed in the ldml file does not match the script of the dbl file. 
+                    #changing the script to None so that this doesn't mess with the listed langtag
+                    ldmlscript = None
                 ldmlterritory = dblLdml.root.find('.//identity/territory')
                 ldmlvar = dblLdml.root.find('.//identity/variant')
                 ldmllangcode = None
@@ -1187,6 +1195,8 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
     sortSpecString = ''
     prioritizeLdmlColl = True
     vs=None
+    collMatchesScript=True
+    ldsvs=None
     if replaceColl:
         if 'lds' in filenames and (collSimpleNode == None or ldml.get_draft(collSimpleNode) >= gendraft):
             for d in filenames['lds']:
@@ -1202,16 +1212,27 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                     # this is to avoid situations where there is more than one viable lds file
                     # not perfect solution but will prevent any potential redundancy weirdness
                     # currently only file that would use this is alp
-                    if dblSimpleCollation is None:
-                        vs = re.sub(r"(\s*\n)+", "\n", sortColl.asSimple())
+                    ldsvs = re.sub(r"(\s*\n)+", "\n", sortColl.asSimple())
                     break
         if dblSimpleCollation is not None:
             vs = re.sub(r"(\s*\n)+", "\n", dblSimpleCollation.text)
             if prioritizeLdmlColl: 
                 vstrings = [puamap(s) for s in vs.split("\n")]
-                (sortColl, alphabet) = calcSortLdsData(ldml, filename, vstrings, ducetDict, script)
+                for v in vstrings:
+                    if Script.getShortName(Script.getScript(v[0])) != script and Script.getShortName(Script.getScript(v[0])) not in ['Zyyy', 'Zinh']:
+                        #simple collation has character that isn't in the script, nor is it punctuation nor diacritic
+                        #alternatively it could be handy to have a loop that removes non-script matching characters
+                        collMatchesScript = False
+                        print("uh oh don't match")
+                        break
+                if collMatchesScript:
+                    (sortColl, alphabet) = calcSortLdsData(ldml, filename, vstrings, ducetDict, script)
+        elif collMatchesScript and ldsvs != None:
+            #this allows for dblSimpleCollation to still be prioritized because it's more likely to actually be tailored, while still keeping the one from the lds file if the ldml one is for the wrong script
+            vs = ldsvs
         if vs is not None:
             if len(vs) > 0:
+                testvs = vs
                 se = ldml.ensure_path('collations/collation[@type="standard"]/special/sil:simple')[0]
                 se.text = puamap(vs)
         if sortColl is not None and len(sortColl) > 0:
