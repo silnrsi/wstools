@@ -43,9 +43,7 @@ def gettext(e):
 fontswap = {
     # list items in order are [font to replace it with, features, language setting, keep?]
     #"keep or not" refers to whether the font should still be listed without a link, or removed after being swapped out. True means keep it, False means delete it
-    # if the font to replace it with is None, just delete the font
-    #IMPORTANT: If you want to preserve the original font name as a separate, linkless entry in the file, you only need to add it here. 
-    #HOWEVER: If you want the original font to be removed from the file, you also need to add an entry in the 'removeMe' dictionary under addMissingFontData()
+    # If none is in the "font to replace it" spot, that means the font should just be deleted immediately. The code has a failsafe in case that deletes the only font. 
     #try to list these alphabetically for easy reference
     "Amdo Classic 1":["Noto Serif Tibetan", None, None, False],
     "Andika New Basic": ["Andika", None, None, True],
@@ -125,83 +123,6 @@ fontswap = {
     "Verdana": ["Charis SIL", None, None, False],
     "XenoType TB Drepung":["Noto Serif Tibetan", None, None, False]
 }
-
-# removeMe = {
-#     # fonts we try to not have in SLDR and the fonts to replace it with
-#     #what's in here should be in fontswap as well and vice versa mostly. probably there's a way to merge the overlapping parts
-#     #currently if it's a feature change but you want the name of the subset to remain, put it in fontswap ONLY
-#     # if it's one of the rare None ones where there is no good swap so just delete it only goes in removeMe
-#     # otherwise everything in both
-#     # Update this every time there is a new DBL import by checking for fonts without links.
-#     #idea on how to merge the two dicts: add another item in the list in the other dict to indicate if keep old thingy or not, put none in font replace field (item 0) if skip entirely
-#     "Amdo Classic 1":"Noto Serif Tibetan",
-#     "Angsana New": "Noto Sans Thai",
-#     "Annapurna SIL Beta 1 spvisarga2": "Annapurna SIL",
-#     "Annapurna SIL Kham": "Annapurna SIL",
-#     "Annapurna SIL Magar": "Annapurna SIL",
-#     "Annapurna SIL Syuba": "Annapurna SIL",
-#     "Annapurna": "Annapurna SIL",
-#     "Apparatus SIL": "Charis SIL",
-#     "Arial Narrow" : "Charis SIL",
-#     "Arial Rounded MT Bold" : "Charis SIL",
-#     "Arial Unicode MS": "Charis SIL",
-#     "Arial" : "Charis SIL",
-#     "Book Antiqua": "Charis SIL",
-#     "Calibri" : "Charis SIL",
-#     "Californian FB": "Charis SIL",
-#     "Cambria": "Charis SIL",
-#     "Century": "Charis SIL",
-#     "Charis SIL Charis SIL Literacy": "Charis SIL Literacy",
-#     "Comic Sans MS" : "Charis SIL",
-#     "Constantia": "Charis SIL",
-#     "Courier New":"Charis SIL",
-#     "Cyrillic SILCharis": "Charis SIL",
-#     "Daasun~1 Daasun~1 SILCharis": "Charis SIL",
-#     "David CLM": "Ezra SIL",
-#     "David Libre": "Ezra SIL",
-#     "DejaVu Serif": None,
-#     "Garamond": "Charis SIL",
-#     "Gautami":"Noto Sans Telugu",
-#     "Gentium Basic": "Gentium Plus",
-#     "Gentium": "Gentium Plus",
-#     "Georgia": "Charis SIL",
-#     "Kalinga": "Japa Sans Oriya",
-#     "Khmer Barkaew": "Khmer Busra",
-#     "Khmer Dakdam YY": "Khmer Busra",
-#     "Khmer Dakdam": "Khmer Busra",
-#     "Khmer Dakdam1": "Khmer Busra",
-#     "Khmer Leak Laom": "Khmer Mondulkiri",
-#     "Khmer OS": "Khmer Mondulkiri",
-#     "Khmer Oyadaw": "Khmer Mondulkiri",
-#     "Khmer Yeaklom": "Khmer Mondulkiri",
-#     "Kristen ITC":"Charis SIL",
-#     "Kruti Dev 016":"Annapurna SIL",
-#     "Lateef Haz Kas Low": "Lateef",
-#     "Lateef Hazaragi":"Lateef",
-#     "Lato": "Charis SIL",
-#     "Maiandra GD": "Charis SIL",
-#     "Mangal": "Annapurna SIL",
-#     "Microsoft Himalaya":"Noto Serif Tibetan",
-#     "Monlam Uni OuChan2": "Noto Serif Tibetan",
-#     "MS Outlook": "Charis SIL",
-#     "Namkio Khamti": "Padauk",
-#     "Rachana Edited": "Noto Sans Malayalam",
-#     "Rachana": "Noto Sans Malayalam",
-#     "Sakkal Majalla":"Scheherazade New",
-#     "Scheherazade M4z": "Scheherazade New",
-#     "Scheherazade": "Scheherazade New",
-#     "ScheherazadeShina32 Shina32": None,
-#     "SILCharis": "Charis SIL",
-#     "SILDoulos IPA93": "Doulos SIL",
-#     "Sylfaen": "Charis SIL",
-#     "Tahoma": "Charis SIL",
-#     "Tai Khamti": "Padauk",
-#     "Tibetan Machine Uni":"Noto Serif Tibetan",
-#     "Times New Roman" : "Charis SIL",
-#     "Tunga": "Badami",
-#     "Verdana": "Charis SIL",
-#     "XenoType TB Drepung":"Noto Serif Tibetan"
-# }
 
 fontExceptions = {
     # for cases where there's no way to hard-code this change, but you don't want to double check to make sure it didn't replace it every time you merge in new data
@@ -854,13 +775,7 @@ def addMissingFontData(ldml, fonts, script):
     for fontElement in fonts:
         name = fontElement.get("name")
         fontList[name]=fontElement
-    # step 1: identify if any swappys are needed (i.e. charis sil amarea)
-    # step 2: identify if the swapped version is already in the list (i.e. charis sil). THis will likely come BEFORE the one that needs swap work
-    # step 3: when processing the latter, make sure it has the correct features
-    # step 3 alt: if step 2 is no, add that font in with the correct features
-    # step 4: strip swappy of other details and add it in directly under the main font
-    # final result should have charis first with all details and then a font under it that says charis amarea
-    
+
     for font, fontElem  in fontList.items():
         originalFont = None
         swapperFont = None
@@ -870,7 +785,7 @@ def addMissingFontData(ldml, fonts, script):
         keep = True
         linksMissing = False
         print(font)
-        if font in fontswap.keys(): # and name not in removeMe.keys():
+        if font in fontswap.keys(): 
             originalFont = font
             swapperFont= fontswap[font][0]
             swapNeeded = True
@@ -878,9 +793,6 @@ def addMissingFontData(ldml, fonts, script):
             langSetting = fontswap[font][2] 
             keep = fontswap[font][3]
             print(features)
-        # print(font)
-        # print(swapperFont)
-        # print(keep)
         if font == swapperFont:
             #for cases where the font is the same, it just needs new features. idk if this actually ever happens
             if features is not None and fontElem.get("features",None) != features:
@@ -902,7 +814,6 @@ def addMissingFontData(ldml, fonts, script):
                 elif langSetting is not None and features is None:
                     fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@lang="{}"]'.format(font, langSetting))[0]
                 elif langSetting is None and features is not None:
-                    print(features)
                     fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@features="{}"]'.format(font, features))[0]
                 else:
                     fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@features="{}"][@lang="{}"]'.format(font, features, langSetting))[0]
@@ -911,19 +822,6 @@ def addMissingFontData(ldml, fonts, script):
             else:
                 #if the font we would swap to was already in the file (fontList) or was added to the file from a previous swap in the loop (newSwaps), skip it
                 continue
-        # if font in removeMe.keys():
-        #     #fontswap and removeme can probably be somehow consolidated but will need to do so in a way that it doesn't break the other usage of fontswap
-        #     fontElem.parent.remove(fontElem)
-        #     removeFont = font
-        #     if removeMe[removeFont] == None:
-        #         continue
-        #     if removeMe[removeFont] not in fontList.keys() and removeMe[removeFont] not in newSwaps:
-        #         # aka if the font we would replace this font with isn't already in the list
-        #         font = removeMe[removeFont]
-        #         fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"]'.format(font))[0]
-        #         newSwaps.append(font)
-        #     else: 
-        #         continue
         if len(fontElem) == 0:
             #aka if there isn't a url
             linksMissing = _addLink(font, fontElem)
@@ -962,7 +860,7 @@ def addMissingFontData(ldml, fonts, script):
                         pass    # this is one of the ones that we leave without links for now?
                     else:
                         #print("{} is missing a url, please update the dictionaries in dbl2ldml accordingly".format(font))
-                        # this references fontswap and removeMe
+                        # this references fontswap 
                         urlMissing = True
 
     fontErrors = [fontMissing, urlMissing, linklessFonts]
@@ -1519,7 +1417,7 @@ if __name__ == '__main__':
 
             if len (fontIssues.items()) > 0: 
                 print("Issues with fonts in some files listed below. Please update the dictionaries in dbl2ldml accordingly:")
-                # this references fontswap and removeMe in addMissingFontData()
+                # this references fontswap in addMissingFontData()
                 for f in fontIssues.items():
                     print("\t" + str(f))
             print("ALL DONE!")
@@ -1601,6 +1499,6 @@ if __name__ == '__main__':
 
     # if len (fontIssues.items()) > 0: 
     #     print("Issues with fonts in some files listed below. Please update the dictionaries in dbl2ldml accordingly:")
-    #     # this references fontswap and removeMe in addMissingFontData()
+    #     # this references fontswap in addMissingFontData()
     #     for f in fontIssues.items():
     #         print("\t" + str(f))
