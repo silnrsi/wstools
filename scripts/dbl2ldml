@@ -55,37 +55,38 @@ fontswap = {
     "Annapurna SIL Magar": ["Annapurna SIL", None, None, True],
     "Annapurna SIL Nepal": ["Annapurna SIL", "ss01=1 ss08=1 ss09=1 ss10=1", None, True],   # adds the features to adjacent Annapurna SIL files but also keeps the link to the specific nepal one 
     "Annapurna SIL Syuba": ["Annapurna SIL", None, None, True],
-    "Apparatus SIL": ["Charis SIL", None, None, False],
-    "Arial" : ["Charis SIL", None, None, False],
-    "Arial Narrow" : ["Charis SIL", None, None, False],
-    "Arial Rounded MT Bold" : ["Charis SIL", None, None, False],
-    "Arial Unicode MS": ["Charis SIL", None, None, False],
-    "Book Antiqua": ["Charis SIL", None, None, False],
-    "Calibri" : ["Charis SIL", None, None, False],
-    "Californian FB": ["Charis SIL", None, None, False],
-    "Cambria": ["Charis SIL", None, None, False],
-    "Century": ["Charis SIL", None, None, False],
-    "Charis SIL Afr": ["Charis SIL", "cv44=1, cv46=1, cv49=1, cv77=1, ss04=1", None, True],
-    "Charis SIL AmArea": ["Charis SIL", "ss04=1 cv43=2 cv68=1 cv77=1 cv90=1", None, True],
-    "Charis SIL Charis SIL Literacy": ["Charis SIL", "ss01=1", None, False],
-    "Charis SIL Compact": ["Charis SIL", None, None, True],      #typetuned to have Tight spacing
-    "Charis SIL Ghana": ["Charis SIL", "cv43=0 cv46=1", None, True],
-    "Charis SIL Lit": ["Charis SIL", "ss01=1", None, True],
-    "Charis SIL Literacy": ["Charis SIL", "ss01=1", None, True],
-    "Charis SIL Mali": ["Charis SIL", "cv43=0 cv44=1 cv46=1", None, True],
-    "Comic Sans MS": ["Charis SIL", None, None, False],
-    "Constantia": ["Charis SIL", None, None, False],
-    "Courier New": ["Charis SIL", None, None, False],
-    "Cyrillic SILCharis": ["Charis SIL", None, None, False],
-    "Daasun~1 Daasun~1 SILCharis": ["Charis SIL", None, None, False],
+    "Apparatus SIL": ["Charis", None, None, False],
+    "Arial" : ["Charis", None, None, False],
+    "Arial Narrow" : ["Charis", None, None, False],
+    "Arial Rounded MT Bold" : ["Charis", None, None, False],
+    "Arial Unicode MS": ["Charis", None, None, False],
+    "Book Antiqua": ["Charis", None, None, False],
+    "Calibri" : ["Charis", None, None, False],
+    "Californian FB": ["Charis", None, None, False],
+    "Cambria": ["Charis", None, None, False],
+    "Century": ["Charis", None, None, False],
+    "Charis SIL": ["Charis", None, None, True],
+    "Charis SIL Afr": ["Charis", "cv44=0 cv46=1 cv49=1 cv77=1 ss04=1", None, True],
+    "Charis SIL AmArea": ["Charis", "ss04=1 cv43=2 cv68=1 cv77=1 cv90=1", None, True],
+    "Charis SIL Charis SIL Literacy": ["Charis", "ss01=1", None, False],
+    "Charis SIL Compact": ["Charis", None, None, True],      #typetuned to have Tight spacing
+    "Charis SIL Ghana": ["Charis", "cv43=0 cv46=1", None, True],
+    "Charis SIL Lit": ["Charis", "ss01=1", None, True],
+    "Charis SIL Literacy": ["Charis", "ss01=1", None, True],
+    "Charis SIL Mali": ["Charis", "cv43=0 cv44=0 cv46=1", None, True],
+    "Comic Sans MS": ["Charis", None, None, False],
+    "Constantia": ["Charis", None, None, False],
+    "Courier New": ["Charis", None, None, False],
+    "Cyrillic SILCharis": ["Charis", None, None, False],
+    "Daasun~1 Daasun~1 SILCharis": ["Charis", None, None, False],
     "David CLM": ["Ezra SIL", None, None, False],
     "David Libre": ["Ezra SIL", None, None, False],
     "DejaVu Serif": [None, None, None, False],
-    "Garamond": ["Charis SIL", None, None, False],
+    "Garamond": ["Charis", None, None, False],
     "Gautami": ["Noto Sans Telugu", None, None, False],
-    "Gentium": ["Gentium Plus", None, None, False],
-    "Gentium Basic": ["Gentium Plus", None, None, False],
-    "Georgia": ["Charis SIL", None, None, False],
+    "Gentium Plus": ["Gentium", None, None, False],
+    "Gentium Basic": ["Gentium", None, None, False],
+    "Georgia": ["Charis", None, None, False],
     "Khmer Barkaew": ["Khmer Busra", None, None, False],
     "Khmer Dakdam": ["Khmer Busra", None, None, False],
     "Khmer Dakdam YY": ["Khmer Busra", None, None, False],
@@ -94,16 +95,16 @@ fontswap = {
     "Khmer OS": ["Khmer Mondulkiri", None, None, False],
     "Khmer Oyadaw": ["Khmer Mondulkiri", None, None, False],
     "Khmer Yeaklom": ["Khmer Mondulkiri", None, None, False],
-    "Kristen ITC":["Charis SIL", None, None, False],
+    "Kristen ITC":["Charis", None, None, False],
     "Kruti Dev 016":["Annapurna SIL", None, None, False],
     "Lateef Haz Kas Low": ["Lateef","cv62=1", None, False],
     "Lateef Hazaragi": ["Lateef","cv62=1", None, False],
-    "Lato": ["Charis SIL", None, None, False],
-    "Maiandra GD": ["Charis SIL", None, None, False],
+    "Lato": ["Charis", None, None, False],
+    "Maiandra GD": ["Charis", None, None, False],
     "Mangal":  ["Annapurna SIL", None, None, False],
     "Microsoft Himalaya":["Noto Serif Tibetan", None, None, False],
     "Monlam Uni OuChan2": ["Noto Serif Tibetan", None, None, False],
-    "MS Outlook": ["Charis SIL", None, None, False],
+    "MS Outlook": ["Charis", None, None, False],
     "Rachana": ["Noto Sans Malayalam", None, None, False],
     "Rachana Edited": ["Noto Sans Malayalam", None, None, False],
     "Sakkal Majalla": ["Scheherazade New", None, None, False],
@@ -114,25 +115,25 @@ fontswap = {
     "ScheherazadeShina32 Shina32": [None, None, None, False],
     "SIL Ezra": ["Ezra SIL", None, None, False],
     "SIL Galatia": ["Galatia SIL", None, None, False],
-    "SILCharis": ["Charis SIL", None, None, False],
+    "SILCharis": ["Charis", None, None, False],
     "SILDoulos IPA93": ["Doulos SIL", "cv43=2, cv77=1, ss05=1", None, False],
-    "Sylfaen": ["Charis SIL", None, None, False],
-    "Tahoma": ["Charis SIL", None, None, False],
+    "Sylfaen": ["Charis", None, None, False],
+    "Tahoma": ["Charis", None, None, False],
     "Tibetan Machine Uni":["Noto Serif Tibetan", None, None, False],
-    "Times New Roman" : ["Charis SIL", None, None, False],
-    "Verdana": ["Charis SIL", None, None, False],
+    "Times New Roman" : ["Charis", None, None, False],
+    "Verdana": ["Charis", None, None, False],
     "XenoType TB Drepung":["Noto Serif Tibetan", None, None, False]
 }
 
 fontExceptions = {
     # for cases where there's no way to hard-code this change, but you don't want to double check to make sure it didn't replace it every time you merge in new data
-    "emp_3c8ed09b9e38c6f3.zip" : "Charis SIL",
-    "ndz_b5472a584e2d47b2.zip": "Charis SIL"
+    "emp_3c8ed09b9e38c6f3.zip" : "Charis",
+    "ndz_b5472a584e2d47b2.zip": "Charis"
 }
 
 stowaways = {
     # fonts that appear in files where they should not based on the script. update as needed. 
-    "Charis SIL" : ["Latn", "Cyrl"],
+    "Charis" : ["Latn", "Cyrl"],
     "Doulos SIL" : ["Latn", "Cyrl", "Grek", "Copt"],
     "Annapurna SIL": ["Deva"],
     "Annapurna SIL Nepal": ["Deva"],
@@ -144,37 +145,24 @@ stowaways = {
 
 dontaddcollation = [
     #files that have currently empty collation but DO NOT want the collation from the dbl file added to it
-    "aeu",
-    "aia",
-    "aoj-x-filifita",
-    "blz",
-    "bvd",
-    "cco",
-    "chq",
-    "chz",
-    "cso",
-    "cta",
-    "ctp",
-    "djk",
-    "dnj-x-western",
-    "emp",
-    "far",
-    "hbb",
-    "jab",
-    "kmk",
-    "kyg",
-    "kzr",
-    "msk",
-    "nsn",
-    "pao",
-    "poi",
-    "stb",
-    "sxb",
-    "tos",
-    "zab",
-    "zad",
-    "zar",
-    "zyp"
+    #please put in alphabetical order for easier reference, and a comment explaining why this collation should be excluded. 
+    "aeu",  # standard a-z collation except for apostrophe after z, but word-forming apostrophe doesn't appear in translation text
+    "aia",  # standard a-z collation except for ß before a, which doesn't appear in the orthography at all
+    "cco",  # spanish-based a-z collation that doesn't represent the actual orthography
+    "chq",  # spanish-based a-z collation that doesn't represent the actual orthography
+    "chz",  # spanish-based a-z collation that doesn't represent the actual orthography
+    "cso",  # spanish-based a-z collation that doesn't represent the actual orthography
+    "ctp",  # spanish-based a-z collation that doesn't represent the actual orthography
+    "djk",  # spanish-based a-z collation that doesn't represent the actual orthography
+    "dwz",  # standard a-z collation
+    "emp",  # something in the simple collation is fundamentally broken when it tries to process it, and the values in it don't reflect the orthography anyway
+    "hbb",  # sort order makes no sense, could be legit, but hard to say 
+    "kmk",  # standard a-z collation
+    "kyg",  # standard a-z collation
+    "msk",  # standard a-z collation
+    "nsn",  # standard a-z collation
+    "sxb",  # something in the simple collation is fundamentally broken when it tries to process it, and the values in it don't reflect the orthography anyway
+    "zad",  # something in the simple collation is fundamentally broken when it tries to process it, and the values in it don't reflect the orthography anyway
 ]
 
 newDblFiles = {}
@@ -380,7 +368,7 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue, filename, scrip
     #fontElemp = ldml.ensure_path('special/sil:external-resources/sil:fontrole[@types="default"]')[0]
     # Or (more likely) this might come from the .lds file.
 
-    #ideally (?) have both the charis sil one and the named one for clarity. change this code to instead say "if this appears ALSO add this one"
+    #ideally (?) have both the charis one with features, and the typetuned one for clarity.
     subsetFontValue = None
     features = None
 
@@ -400,7 +388,6 @@ def _addLdsSsfDataFont(ldml, defaultFontValue, defaultSizeValue, filename, scrip
     if defaultFontValue in fontswap.keys():
         subsetFontValue = defaultFontValue
         defaultFontValue = fontswap[defaultFontValue][0]
-            # okay so this works as far as getting it to show up as Charis instead, and preventing it from overriding existing fixed ones
     a = str(filename).rfind('/')
     if a > 0:
         filename = str(filename)[a+1:]
@@ -670,7 +657,7 @@ def addMissingFontData(ldml, fonts, script):
     linklessFonts = []
 
     lffUrls = {
-        "Charis SIL" : "charissil",
+        "Charis" : "charis",
         "Aboriginal Sans" : "aboriginalsans",
         "Abyssinica SIL" : "abyssinicasil",
         "Akatab" : "akatab",
@@ -686,8 +673,7 @@ def addMissingFontData(ldml, fonts, script):
         "Dukor" : "dukor",
         "Ezra SIL" : "ezrasil",
         "Galatia SIL" : "galatiasil",
-        "Gentium" : "gentiumplus",
-        "Gentium Plus": "gentiumplus",
+        "Gentium" : "gentium",
         "Harmattan" : "harmattan",
         "Badami" : "badami",
         "Lateef" : "lateef",
@@ -740,7 +726,7 @@ def addMissingFontData(ldml, fonts, script):
 
     defaultFonts = {
         #this could probably be made to automatically pull from script2font.csv but for now it's manual
-        "Latn": "Charis SIL",
+        "Latn": "Charis",
         "Deva": "Annapurna SIL"
     }
 
@@ -771,7 +757,7 @@ def addMissingFontData(ldml, fonts, script):
     fonts = _handleNoFonts(fonts)
 
     fontList = {}
-    newSwaps = []
+    newSwaps = {}
     for fontElement in fonts:
         name = fontElement.get("name")
         fontList[name]=fontElement
@@ -784,7 +770,6 @@ def addMissingFontData(ldml, fonts, script):
         langSetting = None
         keep = True
         linksMissing = False
-        print(font)
         if font in fontswap.keys(): 
             originalFont = font
             swapperFont= fontswap[font][0]
@@ -792,7 +777,6 @@ def addMissingFontData(ldml, fonts, script):
             features = fontswap[font][1] 
             langSetting = fontswap[font][2] 
             keep = fontswap[font][3]
-            print(features)
         if font == swapperFont:
             #for cases where the font is the same, it just needs new features. idk if this actually ever happens
             if features is not None and fontElem.get("features",None) != features:
@@ -805,37 +789,40 @@ def addMissingFontData(ldml, fonts, script):
             if swapperFont == None:
                 #for rare edge cases where the easiest solution is to just delete it and don't replace with anything
                 continue
-            if swapperFont not in fontList.keys() and swapperFont not in newSwaps:
-                #newSwaps is here to make sure we don't replace two fonts with the same new font. 
-                #For example, if Andika wasn't in the original collection of fonts (fontList), but then font #1 swapped to andika, and font #2 would ALSO swap to andika, it instead just skips it since we already now have andika
-                font = swapperFont
-                if langSetting is None and features is None:
-                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"]'.format(font))[0]
-                elif langSetting is not None and features is None:
-                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@lang="{}"]'.format(font, langSetting))[0]
-                elif langSetting is None and features is not None:
-                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@features="{}"]'.format(font, features))[0]
-                else:
-                    fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@features="{}"][@lang="{}"]'.format(font, features, langSetting))[0]
-                fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"]'.format(font))[0]
-                newSwaps.append(font)
-            else:
-                #if the font we would swap to was already in the file (fontList) or was added to the file from a previous swap in the loop (newSwaps), skip it
-                continue
-        if len(fontElem) == 0:
-            #aka if there isn't a url
-            linksMissing = _addLink(font, fontElem)
-        if swapNeeded is True and font == originalFont:
+        elif font in lffUrls.keys():
+            if len(fontElem) == 0:
+                #aka if there isn't a url AND this is one of the rare ones that actually gets a url even though a new thing is also being added as supplement (currently this is just Annapurna SIL Nepal)
+                linksMissing = _addLink(font, fontElem)
+        if swapNeeded and swapperFont not in fontList.keys() and swapperFont not in newSwaps.keys():
+            #newSwaps is here to make sure we don't replace two fonts with the same new font. 
+            #For example, if Andika wasn't in the original collection of fonts (fontList), but then font #1 swapped to andika, and font #2 would ALSO swap to andika, it instead just skips it since we already now have andika
             if langSetting is None and features is None:
                 fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"]'.format(swapperFont))[0]
             elif langSetting is not None and features is None:
                 fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@lang="{}"]'.format(swapperFont, langSetting))[0]
             elif langSetting is None and features is not None:
-                print(features)
                 fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@features="{}"]'.format(swapperFont, features))[0]
             else:
                 fontElem = ldml.ensure_path('special/sil:external-resources/sil:font[@name="{}"][@features="{}"][@lang="{}"]'.format(swapperFont, features, langSetting))[0]
-            font = swapperFont
+            newSwaps[swapperFont]= fontElem
+            font=swapperFont
+        elif swapNeeded and (swapperFont in fontList.keys() or swapperFont in newSwaps.keys()):
+            if swapperFont in fontList.keys():
+                fontElem = fontList[swapperFont]
+            else:
+                fontElem = newSwaps[swapperFont]
+            # if the font was already added by something else, but not the appropriate features, add the features to the previously added font
+            if features is not None and fontElem.get("features",None) != features:
+                fontElem.set("features", features)
+            if langSetting is not None and fontElem.get("lang",None) != langSetting:
+                fontElem.set("lang", langSetting)
+            swapNeeded = False
+        else:
+            #if the font we would swap to was already in the file (fontList) or was added to the file from a previous swap in the loop (newSwaps), skip it
+            continue
+        if len(fontElem) == 0:
+            #aka if there isn't a url
+            linksMissing = _addLink(font, fontElem)
 
         if font in automaticDefaults:
             fontElem.set("types", "default")
@@ -1151,6 +1138,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                         #alternatively it could be handy to have a loop that removes non-script matching characters
                         collMatchesScript = False
                         print("uh oh don't match")
+                        vs = None
                         break
                 if collMatchesScript:
                     (sortColl, alphabet) = calcSortLdsData(ldml, filename, vstrings, ducetDict, script)
