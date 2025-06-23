@@ -844,7 +844,7 @@ def addMissingFontData(ldml, fonts, script):
                 linksMissing = _addLink(font, fontElem)
                 if linksMissing:
                     if keep:
-                        pass    # this is one of the ones that we leave without links for now?
+                        pass    # this is one of the ones that we leave without links for now
                     else:
                         #print("{} is missing a url, please update the dictionaries in dbl2ldml accordingly".format(font))
                         # this references fontswap 
@@ -1240,7 +1240,7 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
             
     fonts =  ldml.root.findall('special/sil:external-resources/sil:font', {v:k for k,v in ldml.namespaces.items()})
     fontErrors = addMissingFontData(ldml, fonts, script)
-        # fontErrors is a list where item 0 is true if there is no font, item 1 is true if there is a font without a link, and item 2 contains a list of the fonts without links (or an empty list if item 1 is False)
+        # fontErrors is a list containing [bool, bool, [list]] where item 0 is true if there is no font, item 1 is true if there is a font without a link, and item 2 contains a list of the fonts without links (or an empty list if item 1 is False)
 
     # Delete empty data from original LDML
     likelyEmptyAttrs = ['crossrefs', 'diacritics', 'footnotes', 'verseSegments', 'wordBreaks', 'wordFormingPunctuation']
@@ -1459,34 +1459,3 @@ if __name__ == '__main__':
         else:
             outf = sys.stdout
         ldml.serialize_xml(outf.write)
-
-    #final printouts that give summarized info about the data and potential manual fixes needed:
-    # this data will all be incorrect if jobs does not equal 1 because multiprocessing async thingy doesn't preserve global variables. 
-
-    # if len(newDblFiles.items()) > 0:
-    #     print("LDML files generated that don't currently exist in the SLDR, with their respective DBL project file:")
-    #     for n in newDblFiles.items():
-    #         print("\t" + str(n))
-    # else:
-    #     print("No new LDML files generated from this batch of DBL files")
-
-    # duplicates = {}
-    # uniques = []
-    # for g in allGeneratedFiles.keys():
-    #     outputFile = allGeneratedFiles[g]
-    #     if outputFile not in uniques:
-    #         uniques.append(outputFile)
-    #     else:
-    #         for k in [k for k,v in allGeneratedFiles.items() if v == outputFile]:
-    #             duplicates[k] = allGeneratedFiles[k]
-    
-    # if len(duplicates.items()) > 0: 
-    #     print("Multiple DBL files saved to the same path, therefore overriding one or more of them. Please address these in the 'skipfilesmap' or 'knownvarsmap' dictionaries in newdbl.py:")
-    #     for d in duplicates.items():
-    #         print("\t" + str(d))
-
-    # if len (fontIssues.items()) > 0: 
-    #     print("Issues with fonts in some files listed below. Please update the dictionaries in dbl2ldml accordingly:")
-    #     # this references fontswap in addMissingFontData()
-    #     for f in fontIssues.items():
-    #         print("\t" + str(f))
