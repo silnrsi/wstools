@@ -1137,7 +1137,6 @@ def processOneProject(filename, outputPath, ducetDict, langCode, sldrPath=None):
                         #simple collation has character that isn't in the script, nor is it punctuation nor diacritic
                         #alternatively it could be handy to have a loop that removes non-script matching characters
                         collMatchesScript = False
-                        print("uh oh don't match")
                         vs = None
                         break
                 if collMatchesScript:
